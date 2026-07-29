@@ -94,8 +94,8 @@ class PlaylistAgent:
         # 3. RETRIEVE: Get recommendations for each phase
         recommendations = self._retrieve(plan)
 
-        # 4. EXECUTE: Build playlist from recommendations
-        playlist = self._execute(recommendations, phases)
+        # 4. EXECUTE: Build playlist from recommendations (trim to target k)
+        playlist = self._execute(recommendations, phases, target_k=k)
 
         # 5. VALIDATE + ADJUST loop (max 3 attempts)
         # Early exit if no songs: validation will always be 0.0, adjustments won't help
@@ -113,7 +113,7 @@ class PlaylistAgent:
             if attempt < self.max_adjustments - 1:
                 plan = self._adjust(plan, playlist, attempt)
                 recommendations = self._retrieve(plan)
-                playlist = self._execute(recommendations, phases)
+                playlist = self._execute(recommendations, phases, target_k=k)
 
         return playlist
 
@@ -284,6 +284,8 @@ class PlaylistAgent:
     def _retrieve(self, plan: Dict) -> Dict:
         """Get recommendations for each phase using Phase 3 MatcherExplainer.
 
+        For multi-phase playlists, requests extra songs to account for deduplication.
+
         Args:
             plan: Plan dict with phase preferences and total playlist size (k)
 
@@ -297,9 +299,17 @@ class PlaylistAgent:
         # Distribute k songs evenly across phases, minimum 1 per phase
         k_per_phase = max(1, total_k // num_phases)
 
+        # For multi-phase playlists, request extra songs to account for deduplication
+        # Single-phase playlists don't need buffer since there's no deduplication
+        if num_phases > 1:
+            # Request ~30% more songs to ensure we have enough after deduplication
+            k_request = int(k_per_phase * 1.3) + 1
+        else:
+            k_request = k_per_phase
+
         for phase, prefs in plan["phase_prefs"].items():
             mode = plan["mode"]
-            results = self.matcher.match_and_explain(prefs, self.songs, k=k_per_phase, mode=mode)
+            results = self.matcher.match_and_explain(prefs, self.songs, k=k_request, mode=mode)
             recommendations[phase] = results
 
         return recommendations
@@ -307,14 +317,16 @@ class PlaylistAgent:
     # -----------------------------------------------------------------------
     # Step 4: EXECUTE
     # -----------------------------------------------------------------------
-    def _execute(self, recommendations: Dict, phases: List[str]) -> Playlist:
+    def _execute(self, recommendations: Dict, phases: List[str], target_k: int = None) -> Playlist:
         """Build final playlist by combining phase recommendations in order.
 
         Avoids duplicate songs across phases by skipping songs already added.
+        Trims final playlist to target_k if specified.
 
         Args:
             recommendations: Dict with (song, score, explanation) per phase
             phases: Phase labels in order
+            target_k: Target playlist size (trim if exceeded)
 
         Returns:
             Playlist object
@@ -339,6 +351,14 @@ class PlaylistAgent:
                 explanations.append(f"[{phase.title()}] {explanation}")
                 phase_labels.append(phase)
                 seen_song_ids.add(song_id)
+
+                # Stop if we've reached the target size
+                if target_k and len(songs) >= target_k:
+                    break
+
+            # If we've reached target, stop processing more phases
+            if target_k and len(songs) >= target_k:
+                break
 
         return Playlist(
             songs=songs,
