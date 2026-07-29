@@ -73,8 +73,8 @@ class PlaylistAgent:
         # 4. EXECUTE: Build playlist from recommendations
         playlist = self._execute(recommendations, phases)
 
-        # 5. VALIDATE + ADJUST loop (max 3 adjustments)
-        # Skip loop if no songs available (adjustments won't help)
+        # 5. VALIDATE + ADJUST loop (max 3 attempts)
+        # Early exit if no songs: validation will always be 0.0, adjustments won't help
         if not self.songs:
             playlist.validation_score = 0.0
             return playlist
@@ -83,7 +83,7 @@ class PlaylistAgent:
             validation_score = self._validate(playlist, plan)
             playlist.validation_score = validation_score
 
-            if validation_score >= 0.7:  # Acceptable threshold
+            if validation_score >= 0.7:
                 break
 
             if attempt < self.max_adjustments - 1:
@@ -251,11 +251,11 @@ class PlaylistAgent:
     def _validate(self, playlist: Playlist, plan: Dict) -> float:
         """Check if playlist meets user intent via heuristic scoring.
 
-        Validation checks:
-        - Playlist has songs (not empty)
-        - Playlist covers all requested phases
-        - Songs progress logically through phases
-        - Energy/mood progression makes sense
+        Validation checks (weights sum to 1.0):
+        - Non-empty: +0.2
+        - Phase coverage: +0.2 (full) or +0.1 (partial)
+        - Song diversity (80%+ unique): +0.15
+        - Energy progression sensible: +0.15
 
         Args:
             playlist: Generated playlist
@@ -264,7 +264,7 @@ class PlaylistAgent:
         Returns:
             Validation score (0.0-1.0), where >= 0.7 is acceptable
         """
-        score = 0.5  # Base score
+        score = 0.0
 
         # Check 1: Non-empty
         if not playlist.songs:
@@ -289,28 +289,36 @@ class PlaylistAgent:
         if self._check_progression(playlist):
             score += 0.15
 
-        return min(score, 1.0)
+        return score
 
     def _check_progression(self, playlist: Playlist) -> bool:
-        """Check if energy/mood progresses logically through phases."""
+        """Check if energy/mood progresses logically through phases.
+
+        Single-phase playlists always pass (no progression needed).
+        Multi-phase playlists pass if energy varies by > 0.1 across songs.
+        """
         if len(playlist.songs) < 2:
             return True
 
+        # Single-phase: no progression check needed
+        if len(set(playlist.phase_labels)) == 1:
+            return True
+
+        # Multi-phase: verify songs have varied energy (not all identical)
         energies = [s.get("energy", 0.5) for s in playlist.songs]
-
-        # For multi-phase playlists, check that phases don't jump randomly
-        if len(set(playlist.phase_labels)) > 1:
-            # Just check that it's not completely chaotic
-            variance = max(energies) - min(energies)
-            return variance > 0.1  # Some progression exists
-
-        return True
+        variance = max(energies) - min(energies)
+        return variance > 0.1
 
     # -----------------------------------------------------------------------
     # Step 6: ADJUST
     # -----------------------------------------------------------------------
     def _adjust(self, plan: Dict, playlist: Playlist, attempt: int) -> Dict:
         """Modify plan based on validation feedback for next iteration.
+
+        Adjustment strategy (progressive relaxation):
+        - Attempt 0: Lower energy target by 0.1 (broadens song pool)
+        - Attempt 1: Toggle popularity preference (includes/excludes mainstream hits)
+        - Attempt 2: Toggle acoustic preference (varied instrumentation)
 
         Args:
             plan: Original plan
@@ -322,20 +330,19 @@ class PlaylistAgent:
         """
         adjusted = deepcopy(plan)
 
-        # Increase energy range to get more diverse results
         if attempt == 0:
             for phase_prefs in adjusted["phase_prefs"].values():
-                # Broaden energy range
+                # Broaden energy range by lowering target
                 phase_prefs["target_energy"] = max(0.3, phase_prefs.get("target_energy", 0.6) - 0.1)
 
-        # Relax genre constraints
         elif attempt == 1:
             for phase_prefs in adjusted["phase_prefs"].values():
+                # Toggle popularity to get different song selection
                 phase_prefs["prefer_popular"] = not phase_prefs.get("prefer_popular", True)
 
-        # Expand acoustic preference
         elif attempt == 2:
             for phase_prefs in adjusted["phase_prefs"].values():
+                # Toggle acoustic to vary instrumentation
                 phase_prefs["likes_acoustic"] = not phase_prefs.get("likes_acoustic", False)
 
         return adjusted
