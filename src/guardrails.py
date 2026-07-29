@@ -103,4 +103,99 @@ def validate_song_metadata(song: Dict) -> bool:
 
     return True
 
-# Sanitizers and logging added in Phase 2
+
+# ---------------------------------------------------------------------------
+# Phase 2: Input validation & sanitization (Intent Resolver)
+# ---------------------------------------------------------------------------
+import re
+import logging
+
+# Injection attack patterns to reject (GUARDRAILS.md section 2)
+_INJECTION_PATTERNS = [
+    r"(?i)(system|exec|eval|import|__)",           # Python/shell commands
+    r"(?i)(select|insert|update|drop|delete)\s+from",  # SQL
+    r"(\.\./|\/etc\/|\/tmp\/)",                    # File path traversal
+    r"(?i)(ignore|forget|override|bypass|disable)", # Prompt injection markers
+]
+
+def validate_user_input(message: str, max_length: int = 2000) -> tuple[bool, str]:
+    """Validate user input for safety (GUARDRAILS.md section 1).
+
+    Checks:
+      1. Message is not None/empty
+      2. Message is within length limit
+      3. Message doesn't contain injection patterns
+
+    Args:
+        message: Raw user input
+        max_length: Maximum allowed message length (default 2000)
+
+    Returns:
+        (is_valid, sanitized_message) where sanitized is trimmed/stripped
+    """
+    if not message or not isinstance(message, str):
+        return False, ""
+
+    message = message.strip()
+
+    if len(message) == 0:
+        return False, ""
+
+    if len(message) > max_length:
+        return False, f"Message exceeds {max_length} characters"
+
+    # Check for injection patterns
+    for pattern in _INJECTION_PATTERNS:
+        if re.search(pattern, message):
+            return False, "Message contains potentially harmful content"
+
+    return True, message
+
+
+def sanitize_user_input(message: str) -> str:
+    """Prepare user input for LLM (remove control chars, normalize whitespace).
+
+    Args:
+        message: Validated user input (must already pass validate_user_input)
+
+    Returns:
+        Sanitized message safe for LLM
+    """
+    # Remove control characters
+    message = "".join(ch for ch in message if ord(ch) >= 32 or ch in "\n\t")
+
+    # Normalize whitespace
+    message = " ".join(message.split())
+
+    return message
+
+
+def sanitize_explanation(text: str) -> str:
+    """Sanitize explanation text for output (escape HTML, remove injection).
+
+    Args:
+        text: Explanation text from LLM/recommender
+
+    Returns:
+        Safe HTML-escaped text
+    """
+    import html
+
+    # Escape HTML
+    text = html.escape(text)
+
+    # Remove any remaining HTML tags (in case of escaped sequences)
+    text = re.sub(r"&lt;[^&]*&gt;", "", text)
+
+    return text
+
+
+def safe_log_error(logger: logging.Logger, error: Exception, context: str = "") -> None:
+    """Log an error without exposing credentials or sensitive data.
+
+    Args:
+        logger: Python logger instance
+        error: Exception to log
+        context: Brief context string (no user data)
+    """
+    logger.error(f"{context}: {type(error).__name__}: {str(error)[:100]}")

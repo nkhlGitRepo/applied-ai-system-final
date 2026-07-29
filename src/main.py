@@ -247,7 +247,15 @@ def interactive_mode() -> None:
      "Make a morning playlist: calm → energetic"
      "Workout playlist: calm → intense"
 
-  ❌ Exit: Type 'quit', 'exit', or 'bye'
+  🎚️ Custom playlist sizes:
+     "Create a 5-song workout playlist"
+     "Give me a 8 song chill lofi mix"
+     "Pop music of size 12"
+
+  ⌨️ Special Commands:
+     'help' or '?' → Show all options and examples
+     'stats' → View session statistics
+     'exit', 'quit', 'bye', 'goodbye' → Leave the chat
 """)
 
     print("=" * 80)

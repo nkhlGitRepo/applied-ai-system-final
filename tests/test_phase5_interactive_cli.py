@@ -126,6 +126,83 @@ class TestIntegration:
 
 
 # ---------------------------------------------------------------------------
+# Playlist Size Tests
+# ---------------------------------------------------------------------------
+class TestPlaylistSize:
+    """Test playlist size extraction and validation."""
+
+    def test_extract_playlist_size_not_specified(self, cli):
+        """Returns None if size not specified in query."""
+        size = cli._extract_playlist_size("Give me pop songs")
+        assert size is None
+
+    def test_extract_playlist_size_hyphen_format(self, cli):
+        """Extract size from '5-song' format."""
+        size = cli._extract_playlist_size("Create a 5-song workout playlist")
+        assert size == 5
+
+    def test_extract_playlist_size_space_format(self, cli, sample_songs):
+        """Extract size from '5 song' format (no hyphen)."""
+        size = cli._extract_playlist_size("I want a 8 song playlist")
+        assert size == min(8, len(sample_songs))
+
+    def test_extract_playlist_size_singular(self, cli, sample_songs):
+        """Extract size with singular 'song'."""
+        size = cli._extract_playlist_size("Give me a 1 song playlist")
+        assert size == 1
+
+    def test_extract_playlist_size_keyword_size(self, cli, sample_songs):
+        """Extract size from 'size N' format."""
+        size = cli._extract_playlist_size("workout playlist size 12")
+        assert size == min(12, len(sample_songs))
+
+    def test_extract_playlist_size_of_size(self, cli, sample_songs):
+        """Extract size from 'of size N' format."""
+        size = cli._extract_playlist_size("Create a playlist of size 7")
+        assert size == min(7, len(sample_songs))
+
+    def test_extract_playlist_size_invalid_zero(self, cli):
+        """Reject size of 0."""
+        with pytest.raises(ValueError, match="at least 1"):
+            cli._extract_playlist_size("0-song playlist")
+
+    def test_extract_playlist_size_capped_to_available(self, cli, sample_songs):
+        """Caps size to available songs (no error)."""
+        # sample_songs has 5 songs, requesting 100 should cap to 5
+        size = cli._extract_playlist_size("100-song playlist")
+        assert size <= len(sample_songs)
+
+    def test_extract_playlist_size_invalid_over_100(self, cli):
+        """Reject size over 100 limit."""
+        with pytest.raises(ValueError, match="cannot exceed 100"):
+            cli._extract_playlist_size("101-song playlist")
+
+    def test_run_single_query_with_custom_size_param(self, cli):
+        """run_single_query accepts explicit k parameter."""
+        output = cli.run_single_query("pop music", k=3)
+        assert isinstance(output, str)
+        # Should succeed (size 3 is valid)
+        assert "❌" not in output or "Playlist" in output
+
+    def test_run_single_query_with_size_in_query(self, cli):
+        """run_single_query extracts size from query string."""
+        output = cli.run_single_query("5-song pop playlist")
+        assert isinstance(output, str)
+
+    def test_run_single_query_size_validation_error(self, cli):
+        """run_single_query shows error for invalid size (over 100)."""
+        output = cli.run_single_query("101-song playlist")
+        assert "❌" in output
+        assert "cannot exceed 100" in output
+
+    def test_run_single_query_size_capped_to_catalog(self, cli):
+        """run_single_query caps size to available songs (no error)."""
+        output = cli.run_single_query("100-song playlist")
+        # Should succeed, not error
+        assert isinstance(output, str)
+
+
+# ---------------------------------------------------------------------------
 # Rate Limiting Tests
 # ---------------------------------------------------------------------------
 class TestRateLimiting:

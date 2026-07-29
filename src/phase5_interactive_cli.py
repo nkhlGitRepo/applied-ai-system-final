@@ -68,11 +68,13 @@ class PlaylistCli:
         self.songs = songs
         self.session = ConversationSession()
 
-    def run_single_query(self, query: str) -> str:
+    def run_single_query(self, query: str, k: int = 10) -> str:
         """Process single query and return formatted playlist.
 
         Args:
             query: User's playlist request
+            k: Playlist size (default 10). Query can specify size (e.g., "5-song playlist")
+              which overrides this parameter only if explicitly present in query.
 
         Returns:
             Formatted playlist string (ready for display)
@@ -89,24 +91,40 @@ class PlaylistCli:
         # Track message
         self.session.messages.append((sanitized, now))
 
+        # Extract playlist size from query if explicitly specified, else use provided k
+        try:
+            query_size = self._extract_playlist_size(sanitized)
+            if query_size is not None:
+                k = query_size
+        except ValueError as e:
+            return f"❌ {str(e)}"
+
         # Generate playlist (Phases 2-4)
         try:
-            playlist = self.agent.plan_and_execute(sanitized)
+            playlist = self.agent.plan_and_execute(sanitized, k=k)
+        except ValueError as e:
+            return f"❌ {str(e)}"
         except Exception as e:
             return f"❌ Error generating playlist: {str(e)[:100]}"
 
         # Format output
         return self._format_playlist(playlist)
 
-    def run_interactive(self, prompt: str = "Playlist> ") -> None:
-        """Multi-turn conversation loop with rate limiting.
+    def run_interactive(self, prompt: str = "🎧 You: ") -> None:
+        """Multi-turn conversation loop with rate limiting and help.
 
         Args:
-            prompt: Display prompt (default "Playlist> ")
+            prompt: Display prompt (default "🎧 You: ")
         """
-        print("\n🎵 Playlist Generator (Interactive Mode)")
-        print("Commands: 'quit', 'exit', 'bye' to exit")
-        print("Type a playlist request and hit Enter\n")
+        print("\n" + "=" * 80)
+        print("🎵 INTERACTIVE PLAYLIST GENERATOR".center(80))
+        print("=" * 80)
+        print("\n📝 Commands:")
+        print("  • Type your playlist request and press Enter")
+        print("  • 'help' or '?' → Show available commands")
+        print("  • 'stats' → Show session statistics")
+        print("  • 'exit', 'quit', 'bye', 'goodbye' → Exit the chat\n")
+        print("=" * 80 + "\n")
 
         while True:
             try:
@@ -116,9 +134,19 @@ class PlaylistCli:
                 if not user_input:
                     continue
 
+                # Handle help command
+                if user_input.lower() in ["help", "?"]:
+                    self._show_help()
+                    continue
+
+                # Handle stats command
+                if user_input.lower() == "stats":
+                    self._show_session_stats()
+                    continue
+
                 # Handle exit commands
-                if user_input.lower() in ["quit", "exit", "bye"]:
-                    print("Goodbye! 👋")
+                if user_input.lower() in ["quit", "exit", "bye", "goodbye"]:
+                    print("\nGoodbye! 👋 Thanks for using the Playlist Generator!\n")
                     break
 
                 # Process query
@@ -126,7 +154,7 @@ class PlaylistCli:
                 print(output)
 
             except KeyboardInterrupt:
-                print("\n\nGoodbye! 👋")
+                print("\n\nGoodbye! 👋 Thanks for using the Playlist Generator!\n")
                 break
             except EOFError:
                 # Handle end of input (e.g., piped input)
@@ -135,6 +163,45 @@ class PlaylistCli:
     # -----------------------------------------------------------------------
     # Private methods
     # -----------------------------------------------------------------------
+    def _extract_playlist_size(self, query: str) -> int:
+        """Extract playlist size from user query, if specified.
+
+        Recognizes patterns like:
+        - "5-song workout playlist"
+        - "create a 10 song playlist"
+        - "size 20" or "of size 15"
+
+        Args:
+            query: User's query string
+
+        Returns:
+            Extracted playlist size (capped to available songs), or None if not specified
+
+        Raises:
+            ValueError: If specified size is out of valid range (1-100)
+        """
+        from src.phase4_playlist_agent import PlaylistAgent
+        import re
+        query_lower = query.lower()
+
+        # Pattern 1: "N-song(s)" - more specific to avoid matching unrelated numbers
+        # Match word boundary before digit to avoid "I have 2 songs already" confusion
+        match = re.search(r'(?:^|\s)(\d+)\s*-?\s*songs?(?:\s|$)', query_lower)
+        if match:
+            size = int(match.group(1))
+            PlaylistAgent._validate_playlist_size(size)
+            return min(size, len(self.songs))
+
+        # Pattern 2: "size N" or "of size N"
+        match = re.search(r'(?:size|of\s+size)\s+(\d+)', query_lower)
+        if match:
+            size = int(match.group(1))
+            PlaylistAgent._validate_playlist_size(size)
+            return min(size, len(self.songs))
+
+        # No size specified in query
+        return None
+
     def _get_recent_message_count(self, now: float) -> int:
         """Count messages in last hour (helper to avoid duplication).
 
@@ -202,6 +269,52 @@ class PlaylistCli:
         lines.append("\n" + "=" * 70 + "\n")
 
         return "\n".join(lines)
+
+    def _show_help(self) -> None:
+        """Display help text with available commands and query examples."""
+        print("\n" + "=" * 70)
+        print("HELP & EXAMPLES".center(70))
+        print("=" * 70)
+        print("\n📍 Simple Requests:")
+        print("   'Give me happy pop songs'")
+        print("   'I want chill lo-fi music'")
+        print("   'Find me some energetic rock'")
+        print("\n🎯 Specific Playlists (auto-detects phases):")
+        print("   'Create a workout playlist'")
+        print("   'I need a study playlist'")
+        print("   'Build a dinner playlist'")
+        print("   'Make a party playlist'")
+        print("\n🎵 Journey Playlists (emotional progressions):")
+        print("   'sad → happy'")
+        print("   'Create a playlist starting calm and ending energetic'")
+        print("   'Build a morning playlist: calm → energetic'")
+        print("\n🎚️  Custom Sizes:")
+        print("   'Create a 5-song workout playlist'")
+        print("   'Give me 8 songs of pop music'")
+        print("   'lofi playlist of size 12'")
+        print("\n⌨️  Commands:")
+        print("   'help' or '?' → Show this help text")
+        print("   'stats' → Show session statistics")
+        print("   'exit', 'quit', 'bye', 'goodbye' → Exit the chat")
+        print("=" * 70 + "\n")
+
+    def _show_session_stats(self) -> None:
+        """Display current session statistics."""
+        stats = self.session_stats()
+        print("\n" + "=" * 70)
+        print("SESSION STATISTICS".center(70))
+        print("=" * 70)
+        print(f"\n📊 Queries this session: {stats['messages_count']}")
+        print(f"⏱️  Session age: {stats['age_seconds']:.1f} seconds ({stats['age_seconds']/60:.1f} minutes)")
+        print(f"📨 Messages remaining (this hour): {stats['messages_remaining']}/{MAX_MESSAGES_PER_HOUR}")
+
+        if stats['expired']:
+            print("⚠️  Session has expired (max 30 days)")
+        else:
+            days_left = (MAX_SESSION_AGE_DAYS * 24 * 3600 - stats['age_seconds']) / (24 * 3600)
+            print(f"✅ Session active for {days_left:.1f} more days")
+
+        print("=" * 70 + "\n")
 
     def messages_remaining(self, now: float = None) -> int:
         """How many messages left before hitting rate limit.

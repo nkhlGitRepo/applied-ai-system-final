@@ -127,6 +127,48 @@ class TestIntegration:
         assert all(isinstance(p, str) for p in playlist.phase_labels)
         assert 0 <= playlist.validation_score <= 1.0
 
+    def test_plan_and_execute_custom_size_default_10(self, agent):
+        """Default playlist size is 10 songs."""
+        playlist = agent.plan_and_execute("pop music")
+        # With 1 phase and k=10 (default), should have ~10 songs
+        assert len(playlist.songs) <= 10
+
+    def test_plan_and_execute_custom_size_5(self, agent):
+        """Accepts custom playlist size of 5."""
+        playlist = agent.plan_and_execute("pop music", k=5)
+        assert len(playlist.songs) <= 5
+
+    def test_plan_and_execute_custom_size_3(self, agent):
+        """Accepts custom playlist size of 3."""
+        playlist = agent.plan_and_execute("pop music", k=3)
+        assert len(playlist.songs) <= 3
+
+    def test_plan_and_execute_invalid_size_zero(self, agent):
+        """Rejects playlist size of 0."""
+        with pytest.raises(ValueError, match="at least 1"):
+            agent.plan_and_execute("pop music", k=0)
+
+    def test_plan_and_execute_invalid_size_negative(self, agent):
+        """Rejects negative playlist size."""
+        with pytest.raises(ValueError, match="at least 1"):
+            agent.plan_and_execute("pop music", k=-5)
+
+    def test_plan_and_execute_invalid_size_too_large(self, agent, sample_songs):
+        """Caps playlist size to available songs (no error)."""
+        # sample_songs has 6 songs, request 100, should cap to 6
+        playlist = agent.plan_and_execute("pop music", k=100)
+        assert len(playlist.songs) <= len(sample_songs)
+
+    def test_plan_and_execute_invalid_size_over_100(self, agent):
+        """Rejects playlist size over 100."""
+        with pytest.raises(ValueError, match="cannot exceed 100"):
+            agent.plan_and_execute("pop music", k=101)
+
+    def test_plan_and_execute_invalid_size_non_integer(self, agent):
+        """Rejects non-integer playlist size."""
+        with pytest.raises(ValueError, match="at least 1"):
+            agent.plan_and_execute("pop music", k=5.5)
+
 
 # ---------------------------------------------------------------------------
 # Step 1: UNDERSTAND Tests

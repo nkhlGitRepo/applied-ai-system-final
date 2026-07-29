@@ -52,20 +52,44 @@ class PlaylistAgent:
         self.songs = songs
         self.max_adjustments = 3
 
-    def plan_and_execute(self, user_message: str) -> Playlist:
+    @staticmethod
+    def _validate_playlist_size(k: int) -> None:
+        """Validate playlist size is in valid range (1-100).
+
+        Args:
+            k: Playlist size to validate
+
+        Raises:
+            ValueError: If k is not an integer or outside 1-100 range
+        """
+        if not isinstance(k, int) or k < 1:
+            raise ValueError(f"Playlist size must be at least 1, got {k}")
+        if k > 100:
+            raise ValueError(f"Playlist size cannot exceed 100, got {k}")
+
+    def plan_and_execute(self, user_message: str, k: int = 10) -> Playlist:
         """Execute agentic loop: UNDERSTAND → PLAN → RETRIEVE → EXECUTE → VALIDATE → ADJUST.
 
         Args:
             user_message: User's playlist request
+            k: Total playlist size (default 10). Clamped to 1-100 and available songs.
 
         Returns:
             Playlist object with songs, explanations, phase labels, validation score
+
+        Raises:
+            ValueError: If k is not an integer or is invalid (not in 1-100 range)
         """
+        # Validate and normalize playlist size
+        self._validate_playlist_size(k)
+        k = min(k, len(self.songs))
+
         # 1. UNDERSTAND: Extract phases from user message
         phases = self._understand(user_message)
 
         # 2. PLAN: Create preferences for each phase
         plan = self._plan(phases, user_message)
+        plan["k"] = k
 
         # 3. RETRIEVE: Get recommendations for each phase
         recommendations = self._retrieve(plan)
@@ -150,13 +174,21 @@ class PlaylistAgent:
         playlist_type_journeys = {
             "workout": ["energetic", "intense"],
             "dinner": ["uplifting", "chill"],
+            "lunch": ["uplifting", "chill"],
+            "breakfast": ["calm", "energetic"],
+            "brunch": ["calm", "uplifting"],
             "study": ["calm", "focused"],
             "focus": ["calm", "focused"],
+            "work": ["calm", "focused"],
             "party": ["energetic", "uplifting"],
             "relax": ["calm", "chill"],
             "sleep": ["calm", "meditative"],
             "morning": ["calm", "energetic"],
+            "evening": ["uplifting", "calm"],
+            "night": ["chill", "meditative"],
             "chill": ["chill", "relaxed"],
+            "drive": ["calm", "energetic"],
+            "commute": ["calm", "focused"],
         }
 
         for playlist_type, phases in playlist_type_journeys.items():
@@ -210,18 +242,34 @@ class PlaylistAgent:
             prefs = base_prefs.copy()
 
             # Modify preferences based on phase label
-            if phase_lower in ["sad", "melancholic", "emotional"]:
+            if phase_lower in ["sad", "melancholic", "emotional", "somber", "dark"]:
                 prefs["favorite_mood"] = "sad"
                 prefs["target_energy"] = 0.3
-            elif phase_lower in ["happy", "uplifting", "joyful"]:
+                prefs["likes_acoustic"] = True
+                # For sad moods, jazz/acoustic genres work better than pop/electronic
+                if prefs.get("favorite_genre") in ["pop", "electronic", "hip-hop"]:
+                    prefs["favorite_genre"] = "jazz"
+
+            elif phase_lower in ["happy", "uplifting", "joyful", "cheerful"]:
                 prefs["favorite_mood"] = "happy"
                 prefs["target_energy"] = 0.8
-            elif phase_lower in ["chill", "calm", "relaxing"]:
+
+            elif phase_lower in ["chill", "calm", "relaxing", "relaxed", "mellow"]:
                 prefs["favorite_mood"] = "chill"
                 prefs["target_energy"] = 0.3
-            elif phase_lower in ["intense", "energetic", "pumped"]:
+                prefs["likes_acoustic"] = True
+                # For chill moods, jazz/ambient/acoustic genres work better than pop/electronic
+                if prefs.get("favorite_genre") in ["pop", "electronic", "hip-hop", "rock"]:
+                    prefs["favorite_genre"] = "jazz"
+
+            elif phase_lower in ["intense", "energetic", "pumped", "dramatic", "powerful"]:
                 prefs["favorite_mood"] = "energetic"
                 prefs["target_energy"] = 0.9
+                prefs["likes_acoustic"] = False
+                # For intense moods, rock/hip-hop/electronic work better than jazz/acoustic
+                if prefs.get("favorite_genre") in ["jazz", "lofi", "classical"]:
+                    prefs["favorite_genre"] = "rock"
+
             elif phase_lower == "transition":
                 prefs["target_energy"] = 0.5  # Mid-range for transition
 
@@ -237,20 +285,21 @@ class PlaylistAgent:
         """Get recommendations for each phase using Phase 3 MatcherExplainer.
 
         Args:
-            plan: Plan dict with phase preferences
+            plan: Plan dict with phase preferences and total playlist size (k)
 
         Returns:
             Recommendations dict with songs per phase
         """
         recommendations = {}
 
+        total_k = plan.get("k", 10)
+        num_phases = len(plan["phases"])
+        # Distribute k songs evenly across phases, minimum 1 per phase
+        k_per_phase = max(1, total_k // num_phases)
+
         for phase, prefs in plan["phase_prefs"].items():
             mode = plan["mode"]
-            # Request 3-5 songs per phase (rounded up from k/num_phases)
-            k_per_phase = max(3, len(self.songs) // len(plan["phases"]))
-
             results = self.matcher.match_and_explain(prefs, self.songs, k=k_per_phase, mode=mode)
-
             recommendations[phase] = results
 
         return recommendations
@@ -260,6 +309,8 @@ class PlaylistAgent:
     # -----------------------------------------------------------------------
     def _execute(self, recommendations: Dict, phases: List[str]) -> Playlist:
         """Build final playlist by combining phase recommendations in order.
+
+        Avoids duplicate songs across phases by skipping songs already added.
 
         Args:
             recommendations: Dict with (song, score, explanation) per phase
@@ -271,6 +322,7 @@ class PlaylistAgent:
         songs = []
         explanations = []
         phase_labels = []
+        seen_song_ids = set()  # Track songs already added to avoid duplicates
 
         for phase in phases:
             if phase not in recommendations:
@@ -278,9 +330,15 @@ class PlaylistAgent:
 
             phase_results = recommendations[phase]
             for song, score, explanation in phase_results:
+                song_id = song.get("id")
+                # Skip if we've already added this song (avoid duplicates across phases)
+                if song_id in seen_song_ids:
+                    continue
+
                 songs.append(song)
                 explanations.append(f"[{phase.title()}] {explanation}")
                 phase_labels.append(phase)
+                seen_song_ids.add(song_id)
 
         return Playlist(
             songs=songs,

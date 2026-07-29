@@ -2,58 +2,66 @@
 
 ## Project Summary
 
-In this project you will build and explain a small music recommender system.
+A complete 5-phase music recommendation system that combines knowledge representation, natural language understanding, and intelligent ranking with RAG-enhanced explanations.
 
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+**Key Features:**
+- **Natural Language Processing:** Understands user requests like "Create a workout playlist" or "emotional journey from sad to happy"
+- **Multi-phase Playlists:** Automatically detects journey requests and decomposes them into logical phases with distinct musical progressions
+- **Explainable AI:** Every recommendation includes plain-English explanations citing genre matches, mood alignment, energy fit, and audio characteristics
+- **Interactive Demo:** Try the system through a terminal chat interface with rate limiting (100 msgs/hour) and session tracking (30-day expiry)
+- **Comprehensive Testing:** 289 tests verifying method interactions, edge cases, and system integration across all 5 phases
 
 ---
 
 ## How The System Works
 
-Explain your design in plain language.
+### 5-Phase Architecture
 
-Some prompts to answer:
+**Phase 1: Knowledge Base (RAG)**
+- Indexes all songs with 9+ attributes (genre, mood, energy, tempo, valence, danceability, acousticness, popularity, decade)
+- Provides Retrieval-Augmented Generation (RAG) context: artist profiles, genre knowledge, similar songs
+- Powers explanation enrichment by retrieving supporting context
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+**Phase 2: Intent Resolver**
+- Parses natural language user requests to extract structured preferences
+- Extracts: favorite_genre, favorite_mood, target_energy, acoustic_preference
+- Confidence-based scoring: 0.5 base + 0.1 per field extracted (max ~0.8 confidence)
+- Automatically selects best scoring mode (genre-first, discovery, niche-friendly, personality)
 
-You can include a simple diagram or bullet list if helpful.
+**Phase 3: Matcher & Explainer**
+- Scores songs using GMEWS algorithm
+- Generates explanations combining: score reasoning + RAG context + artist insights
+- Provides 4 reasoning dimensions: genre match, mood match, energy distance, acoustic fit
 
+**Phase 4: Playlist Agent (Agentic Loop)**
+- Orchestrates Phases 1-3 in a PLAN → RETRIEVE → EXECUTE → VALIDATE → ADJUST loop
+- **Journey Detection:** Automatically recognizes multi-phase requests via 5 strategies:
+  - Arrow notation: `"sad → happy"`
+  - Pattern matching: `"from X to Y"`, `"starting with X, ending with Y"`
+  - Playlist type keywords: `workout`, `dinner`, `study`, `party`, `sleep`, `morning`
+  - Explicit journey keywords: `journey`, `arc`, `transition`, `progression`
+  - Mood keywords in context
+- **Validation & Adjustment:** Validates playlist quality (score ≥0.7), progressively relaxes constraints if needed
 
-Phase 1 Step 4, Summarize you comcept:
-Real-world recommenders like Spotify use multiple signals including what similar users enjoy, song characteristics like tempo and mood, and engagement patterns like skips and saves. The system I am designing uses content-based filtering that matches song features to what users tell us they prefer. Genre and mood are prioritized as the strongest signals because they are fundamentally all or nothing deal breakers for a recommendation. The system's formula will then prioritize numerical features like energy using distance-based scoring where songs closer to a user's preference score higher. Acousticness and danceability are also considered as secondary factors.
+**Phase 5: Interactive CLI**
+- Single-query mode: `run_single_query()`
+- Multi-turn interactive mode: `run_interactive()` for terminal chat
+- Rate limiting: 100 messages per hour per session
+- Session tracking: 30-day conversation expiry
 
-Phase 2 Step 5, Document your plan:
+### Scoring Algorithm (GMEWS)
 
-Algorithm Recipe (GMEWS - Genre-Mood-Energy Weighted Scorer):
-For each song, calculate: SCORE = G + M + (E × 1.5) + (A × 1.0) + (D × 0.3)
-- G: 2.0 if genre matches, else 0.0
-- M: 2.0 if mood matches, else 0.0  
-- E: 1.0 - |song.energy - target_energy| (distance-based)
-- A: acousticness if user likes acoustic, else 1.0 - acousticness
-- D: danceability × 0.3 if target_energy ≥ 0.7, else 0.0
+```
+SCORE = G + M + (E × 1.5) + (A × 1.0) + (D × 0.3)
 
-Rank songs by score (highest first), return top-K with explanations.
+  G: 2.0 if genre matches, else 0.0
+  M: 2.0 if mood matches, else 0.0  
+  E: 1.0 - |song.energy - target_energy| (distance-based, 0-1 range)
+  A: acousticness if user likes acoustic, else 1.0 - acousticness
+  D: danceability × 0.3 if target_energy ≥ 0.7, else 0.0
+```
 
-Test Profiles:
-1. Chill Listener: lofi/chill/0.35/acoustic
-2. Gym Enthusiast: pop/intense/0.90/electronic
-3. Indie Romantic: indie/nostalgic/0.60/acoustic
-4. Electronic Producer: electronic/uplifting/0.87/electronic
-5. Classical Introvert: classical/meditative/0.15/acoustic
-6. Hip-Hop Head: hip-hop/energetic/0.85/electronic
-
-Expected Biases: Genre/mood mismatches create hard ceilings (4.0 score) that limit discovery across genres. Acoustic preference is heavily weighted and reduces recommendations for synthetic music. Energy distance penalizes extreme preferences. Danceability bonus only applies to high-energy users. No collaborative filtering means niche genres unrecommended unless the user explicitly prefers them.
+**Design Rationale:** Genre and mood are binary "deal-breakers" (2.0 points each). Energy uses distance-based scoring so users get variety within their preferred range. Acoustic preference is a secondary modifier. Danceability bonus only applies to high-energy contexts.
 
 
 ---
@@ -62,124 +70,187 @@ Expected Biases: Genre/mood mismatches create hard ceilings (4.0 score) that lim
 
 ### Setup
 
-1. Create a virtual environment (optional but recommended):
-
+1. **Create a virtual environment** (recommended):
    ```bash
    python -m venv .venv
-   source .venv/bin/activate      # Mac or Linux
+   source .venv/bin/activate      # Mac/Linux
    .venv\Scripts\activate         # Windows
+   ```
 
-2. Install dependencies
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+3. **Verify data file exists:**
+   - The system expects `data/songs.csv` with songs to recommend
+
+### Running the System
+
+The system has multiple modes depending on your use case:
+
+#### Interactive Demo Mode (Recommended)
+Chat naturally with the system in a terminal interface:
 ```bash
-pip install -r requirements.txt
+python -m src.main --interactive
+# or
+python -m src.main -i
 ```
 
-3. Run the app:
+**Supported playlist queries:**
+- Simple requests: `"Give me happy pop songs"`
+- Playlist types: `"Create a workout playlist"`, `"I need a study playlist"`
+- Journey playlists: `"sad → happy"`, `"calm to energetic"`, `"Create a dinner playlist from uplifting to chill"`
+- Custom sizes: `"Create a 5-song workout playlist"`, `"Give me 8 songs"`, `"playlist of size 15"`
 
+**Interactive commands:**
+- `help` or `?` → Show help with query examples
+- `stats` → Display session statistics (queries made, rate limit status)
+- `exit`, `quit`, `bye`, or `goodbye` → Exit the chat gracefully
+- Ctrl+C → Exit the chat (keyboard interrupt)
+
+**Playlist size notes:**
+- Default size is **10 songs** if not specified
+- You can specify size using patterns like: `"5-song"`, `"10 songs"`, `"size 12"`, or `"of size 8"`
+- Maximum size is **100 songs** or the full catalog, whichever is smaller
+- If you request more songs than available, the system returns what's available
+
+**Rate limiting and sessions:**
+- Maximum **100 messages per hour** per session
+- Session tracks conversation history for **30 days**
+- Use the `stats` command to see remaining messages and session age
+
+**Example interaction:**
+```
+🎧 You: Create a workout playlist
+✅ Playlist Generated (5 songs, score: 0.85)
+======================================================================
+
+1. GYM HERO - Max Pulse
+   Genre: pop | Mood: intense
+   [Energetic] Genre match: pop (+2.0), Mood match: intense (+2.0), ...
+
+...
+```
+
+#### Single Query Mode
+Process one request and see results:
 ```bash
-python -m src.main
+python -m src.main --profile high_energy_pop --mode genre-first
+```
+
+**Available profiles:** `high_energy_pop`, `chill_lofi`, `deep_intense_rock`, and 5 adversarial profiles
+
+**Available scoring modes:** `genre-first`, `discovery`, `niche-friendly`, `personality`
+
+#### Testing All Phases
+Run an integration test with sample queries:
+```bash
+python -m src.main --test-full-system
+```
+
+#### Full Help
+```bash
+python -m src.main --help
 ```
 
 ### Running Tests
 
-Run the starter tests with:
-
+Run all 289 tests verifying the system:
 ```bash
 pytest
 ```
 
-You can add more tests in `tests/test_recommender.py`.
+View test coverage:
+```bash
+pytest --cov=src --cov-report=html
+```
+
+**Test breakdown:**
+- Phase 1 (Knowledge Base): 38 tests
+- Phase 2 (Intent Resolver): 52 tests
+- Phase 3 (Matcher & Explainer): 22 tests
+- Phase 4 (Playlist Agent): 39 tests
+- Phase 5 (Interactive CLI): 35 tests
+- **Total: 289 tests**
 
 ---
 
-## Sample Recommendation Output
+## Sample Interaction: Interactive Mode
 
-Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
-
-```
-# e.g.:
-# User profile: genre=indie, mood=chill, energy=low
-# Recommendations:
-#   1. ...
-#   2. ...
-#   3. ...
-```
-
-User Profile: pop, happy, 0.80 energy, electronic preference
+**Request:** Create a workout playlist
 
 ```
+🎵 MUSIC PLAYLIST GENERATOR - Interactive Demo
+================================================================================
+Loading system...
+✓ Loaded 20 songs
+✓ Initialized all 5 phases (Knowledge Base → Intent Resolver → Matcher → Agent → CLI)
+
+================================================================================
+EXAMPLES OF WHAT YOU CAN ASK:
+================================================================================
+
+  📍 Simple requests:
+     "Give me happy pop songs"
+     "I want chill lo-fi music"
+     "Find me some energetic rock"
+
+  🎯 Specific playlists (auto-generates smart phases):
+     "Create a workout playlist"
+     "I need a study playlist"
+     "Build a dinner playlist"
+     "Make a party playlist"
+
+  🎵 Journey playlists (structured progressions):
+     "Create a playlist starting with energetic and ending with chill"
+     "Build a dinner playlist from uplifting to relaxed"
+     "Make a morning playlist: calm → energetic"
+
+================================================================================
+START CHATTING (type your first request below):
+================================================================================
+
+🎧 You: Create a workout playlist
+
+✅ Playlist Generated (5 songs, score: 0.82)
 ======================================================================
-TOP RECOMMENDATIONS FOR YOU
+
+1. GYM HERO - Max Pulse
+   Genre: pop | Mood: intense
+   [Energetic] Genre match: pop (+2.0), Mood match: intense (+2.0), ...
+
+2. STORM RUNNER - Voltline
+   Genre: rock | Mood: intense
+   [Intense] Genre match: rock (partial, +1.0), Energy 0.91 matches high-energy workout...
+
+3. ELECTRIC DREAMS - Pulse Collective
+   Genre: electronic | Mood: uplifting
+   [Energetic] Perfect for workout energy. Electronic production builds momentum...
+
+4. GLITCH GARDEN - Experimental Labs
+   Genre: experimental | Mood: intense
+   [Intense] Maintains high energy with unconventional sound design...
+
+5. NEON NIGHTS - Neon Echo
+   Genre: pop | Mood: happy
+   [Energetic] Uplifting finish to the workout with positive energy...
+
 ======================================================================
 
-1. SUNRISE CITY
-   Artist: Neon Echo | Genre: pop
-   Score: 6.53 / 6.0
-
-   Why you'll like it:
-   • Genre match: pop (+2.0)
-   • Mood match: happy (+2.0)
-   • Energy: 0.82 vs target 0.80 (1.47)
-   • Acousticness: 0.82 (electronic)
-   • Danceability bonus: 0.79 (+0.24)
-
-   ------------------------------------------------------------------
-
-2. GYM HERO
-   Artist: Max Pulse | Genre: pop
-   Score: 4.52 / 6.0
-
-   Why you'll like it:
-   • Genre match: pop (+2.0)
-   • Mood mismatch: intense vs happy (0.0)
-   • Energy: 0.93 vs target 0.80 (1.30)
-   • Acousticness: 0.95 (electronic)
-   • Danceability bonus: 0.88 (+0.26)
-
-   ------------------------------------------------------------------
-
-3. ROOFTOP LIGHTS
-   Artist: Indigo Parade | Genre: indie pop
-   Score: 4.34 / 6.0
-
-   Why you'll like it:
-   • Genre mismatch: indie pop vs pop (0.0)
-   • Mood match: happy (+2.0)
-   • Energy: 0.76 vs target 0.80 (1.44)
-   • Acousticness: 0.65 (electronic)
-   • Danceability bonus: 0.82 (+0.25)
-
-   ------------------------------------------------------------------
-
-4. ELECTRIC DREAMS
-   Artist: Pulse Collective | Genre: electronic
-   Score: 2.59 / 6.0
-
-   Why you'll like it:
-   • Genre mismatch: electronic vs pop (0.0)
-   • Mood mismatch: uplifting vs happy (0.0)
-   • Energy: 0.87 vs target 0.80 (1.40)
-   • Acousticness: 0.92 (electronic)
-   • Danceability bonus: 0.91 (+0.27)
-
-   ------------------------------------------------------------------
-
-5. GLITCH GARDEN
-   Artist: Experimental Labs | Genre: experimental
-   Score: 2.51 / 6.0
-
-   Why you'll like it:
-   • Genre mismatch: experimental vs pop (0.0)
-   • Mood mismatch: intense vs happy (0.0)
-   • Energy: 0.79 vs target 0.80 (1.48)
-   • Acousticness: 0.81 (electronic)
-   • Danceability bonus: 0.73 (+0.22)
-
-   ------------------------------------------------------------------
+🎧 You: quit
+Goodbye! 👋
 ```
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
+### Multi-Phase Journey Example
+
+**Request:** sad → happy
+
+The system automatically detects the arrow notation and creates a 2-phase playlist:
+- **Phase 1 (sad):** Lower energy, melancholic mood
+- **Phase 2 (happy):** Higher energy, uplifting mood
+
+Output shows phase labels for each song, allowing you to follow the emotional arc through the playlist.
 
 ---
 
