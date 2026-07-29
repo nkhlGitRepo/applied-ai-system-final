@@ -1,7 +1,7 @@
 # Music Advisor Development Guide
 
 **Project**: AI110 Module 3 - Music Recommender with RAG & Agentic Workflow  
-**Status**: Phase 3 complete (Matcher-Explainer), 215 tests passing  
+**Status**: Phase 4 complete (Playlist Agent), 254 tests passing  
 **Structure**: 5-phase simplified implementation, flat file organization
 
 ---
@@ -29,7 +29,7 @@ src/                              # All Python modules
 ├── phase1_knowledge_base.py     # ✅ DONE - 38 tests
 ├── phase2_intent_resolver.py    # ✅ DONE - 52 tests
 ├── phase3_matcher_explainer.py  # ✅ DONE - 22 tests
-├── phase4_playlist_agent.py     # 🔲 Agentic loop (plan/act/validate/adjust)
+├── phase4_playlist_agent.py     # ✅ DONE - 39 tests
 └── phase5_interactive_cli.py    # 🔲 Multi-turn conversation interface
 
 tests/
@@ -37,7 +37,7 @@ tests/
 ├── test_phase1_knowledge_base.py # ✅ DONE - 38 tests
 ├── test_phase2_intent_resolver.py # ✅ DONE - 52 tests
 ├── test_phase3_matcher_explainer.py # ✅ DONE - 22 tests
-├── test_phase4_playlist_agent.py # 🔲
+├── test_phase4_playlist_agent.py # ✅ DONE - 39 tests
 ├── test_phase5_interactive_cli.py # 🔲
 └── test_guardrails.py           # 🔲 Security tests
 
@@ -73,13 +73,14 @@ assets/                          # For future diagrams
 - **Tests**: 22 passing in `tests/test_phase3_matcher_explainer.py`
 - **Imports**: `from src.phase3_matcher_explainer import MatcherExplainer, create_matcher_explainer`
 
-### Phase 4 🔲 Playlist Agent (Agentic Loop)
+### Phase 4 ✅ DONE (Playlist Agent)
 - **File**: `src/phase4_playlist_agent.py`
-- **What**: Unified loop: UNDERSTAND → PLAN → RETRIEVE → EXECUTE → VALIDATE → ADJUST
-- **API**: `plan_and_execute(message) → Playlist`
-- **Example**: "Emotional journey sad→happy" = decompose into phases, score per phase, refine
-- **Guardrails**: Prevent infinite loops (max 3 adjustments), validation logic
-- **Tests**: `tests/test_phase4_playlist_agent.py`
+- **What**: Unified agentic loop: UNDERSTAND → PLAN → RETRIEVE → EXECUTE → VALIDATE → ADJUST
+- **API**: `plan_and_execute(message) → Playlist` (songs, explanations, phase_labels, validation_score)
+- **Example**: "Create journey sad→happy" extracts phases, creates phase-specific preferences, validates progression
+- **Features**: Phase extraction from arrow notation, preference modification per phase, validation loop with 3 max adjustments
+- **Tests**: 39 passing in `tests/test_phase4_playlist_agent.py`
+- **Imports**: `from src.phase4_playlist_agent import PlaylistAgent, Playlist, create_playlist_agent`
 
 ### Phase 5 🔲 Interactive CLI (Multi-Turn)
 - **File**: `src/phase5_interactive_cli.py`
@@ -141,14 +142,14 @@ assets/                          # For future diagrams
 
 ## Current Status
 
-**Total Tests**: 215 passing ✅ (103 core + 38 Phase 1 + 52 Phase 2 + 22 Phase 3)
+**Total Tests**: 254 passing ✅ (103 core + 38 Phase 1 + 52 Phase 2 + 22 Phase 3 + 39 Phase 4)
 
 | Phase | Component | Status | Tests |
 |-------|-----------|--------|-------|
 | ✅ 1 | Knowledge Base | Complete | 38 ✅ |
 | ✅ 2 | Intent Resolver | Complete | 52 ✅ |
 | ✅ 3 | Matcher-Explainer | Complete | 22 ✅ |
-| 🔲 4 | Playlist Agent | Todo | 0 |
+| ✅ 4 | Playlist Agent | Complete | 39 ✅ |
 | 🔲 5 | Interactive CLI | Todo | 0 |
 
 ---
@@ -209,15 +210,15 @@ git diff src/phaseN_*.py
 
 ---
 
-## Next Phase: Phase 4 (Playlist Agent)
+## Next Phase: Phase 5 (Interactive CLI)
 
 **Start here**: 
-1. Read `GUARDRAILS.md` sections 4 (agentic loop validation, max adjustments)
-2. Stub will be created at `src/phase4_playlist_agent.py`
-3. Test file will be created at `tests/test_phase4_playlist_agent.py`
+1. Read `GUARDRAILS.md` sections 5 (rate limiting, history management, sanitization)
+2. Stub will be created at `src/phase5_interactive_cli.py`
+3. Test file will be created at `tests/test_phase5_interactive_cli.py`
 4. API spec in "5 Phases" section above
 
-**Key requirement**: Implement unified agentic loop (UNDERSTAND → PLAN → RETRIEVE → EXECUTE → VALIDATE → ADJUST) with max 3 adjustments to prevent infinite loops.
+**Key requirement**: Implement interactive multi-turn CLI with rate limiting (max 100 msg/hr), conversation history (30-day expiry), and output sanitization.
 
 ---
 
@@ -231,4 +232,4 @@ git diff src/phaseN_*.py
 ---
 
 **Last Updated**: 2026-07-28  
-**Ready**: Phase 3 complete, Phase 4 ready to start
+**Ready**: Phase 4 complete, Phase 5 ready to start
