@@ -74,6 +74,11 @@ class PlaylistAgent:
         playlist = self._execute(recommendations, phases)
 
         # 5. VALIDATE + ADJUST loop (max 3 adjustments)
+        # Skip loop if no songs available (adjustments won't help)
+        if not self.songs:
+            playlist.validation_score = 0.0
+            return playlist
+
         for attempt in range(self.max_adjustments):
             validation_score = self._validate(playlist, plan)
             playlist.validation_score = validation_score
