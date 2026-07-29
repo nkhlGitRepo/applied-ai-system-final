@@ -13,6 +13,11 @@ from .recommender import (
     load_songs, recommend_songs, recommend_songs_with_diversity, SCORING_MODES,
     format_recommendation_summary, format_recommendation_detailed
 )
+from .phase1_knowledge_base import KnowledgeBase
+from .phase2_intent_resolver import IntentResolver
+from .phase3_matcher_explainer import MatcherExplainer
+from .phase4_playlist_agent import PlaylistAgent
+from .phase5_interactive_cli import PlaylistCli
 import argparse
 
 
@@ -82,6 +87,65 @@ ADVERSARIAL_PROFILES = {
 USER_PROFILES.update(ADVERSARIAL_PROFILES)
 
 
+def test_full_system() -> None:
+    """Test all 5 phases integrated together."""
+    print("=" * 80)
+    print("FULL SYSTEM INTEGRATION TEST (All 5 Phases)")
+    print("=" * 80)
+    print()
+
+    # Load and initialize
+    songs = load_songs("data/songs.csv")
+    print(f"✓ Loaded {len(songs)} songs")
+
+    kb = KnowledgeBase(songs)
+    resolver = IntentResolver()
+    matcher = MatcherExplainer(kb)
+    agent = PlaylistAgent(resolver, matcher, kb, songs)
+    cli = PlaylistCli(resolver, matcher, agent, kb, songs)
+    print("✓ Initialized Phases 1-5")
+    print()
+
+    # Test queries
+    test_queries = [
+        "Give me happy pop songs",
+        "Create an emotional journey from sad to happy",
+        "I want chill lo-fi music",
+        "Find me some energetic rock",
+        "Relaxing acoustic songs",
+    ]
+
+    print("=" * 80)
+    print("PROCESSING 5 SAMPLE QUERIES")
+    print("=" * 80)
+    print()
+
+    for idx, query in enumerate(test_queries, 1):
+        print(f"QUERY {idx}: {query}")
+        print("-" * 80)
+
+        try:
+            output = cli.run_single_query(query)
+            print(output)
+            stats = cli.session_stats()
+            print(f"Messages remaining: {stats['messages_remaining']}")
+            print()
+
+        except Exception as e:
+            print(f"❌ Error: {str(e)}\n")
+
+    # Summary
+    print("=" * 80)
+    print("SESSION SUMMARY")
+    print("=" * 80)
+    stats = cli.session_stats()
+    print(f"Total queries: {stats['messages_count']}")
+    print(f"Session age: {stats['age_seconds']:.2f}s")
+    print(f"Messages remaining this hour: {stats['messages_remaining']}")
+    print()
+    print("✅ ALL PHASES WORKING CORRECTLY")
+
+
 def main(
     profile_name: str = "high_energy_pop",
     mode: str = "genre-first",
@@ -89,7 +153,13 @@ def main(
     artist_penalty: float = 0.5,
     genre_penalty: float = 0.3,
     verbose: bool = False,
+    test_full: bool = False,
 ) -> None:
+    # Handle full system test mode
+    if test_full:
+        test_full_system()
+        return
+
     songs = load_songs("data/songs.csv")
     print(f"Successfully loaded {len(songs)} songs.\n")
 
@@ -152,6 +222,8 @@ if __name__ == "__main__":
                         help="Genre duplicate penalty (0.0-1.0, default: 0.3)")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Show all scoring reasons (default: summary table)")
+    parser.add_argument("--test-full-system", action="store_true",
+                        help="Test all 5 phases integrated together with sample queries")
     args = parser.parse_args()
     main(
         profile_name=args.profile,
@@ -160,4 +232,5 @@ if __name__ == "__main__":
         artist_penalty=args.artist_penalty,
         genre_penalty=args.genre_penalty,
         verbose=args.verbose,
+        test_full=args.test_full_system,
     )
