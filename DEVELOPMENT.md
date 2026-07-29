@@ -1,7 +1,7 @@
 # Music Advisor Development Guide
 
 **Project**: AI110 Module 3 - Music Recommender with RAG & Agentic Workflow  
-**Status**: Phase 1 complete (Knowledge Base), 141 tests passing  
+**Status**: Phase 3 complete (Matcher-Explainer), 215 tests passing  
 **Structure**: 5-phase simplified implementation, flat file organization
 
 ---
@@ -27,16 +27,16 @@ src/                              # All Python modules
 ├── main.py                      # CLI (don't modify)
 ├── guardrails.py                # Validators for all phases ✅
 ├── phase1_knowledge_base.py     # ✅ DONE - 38 tests
-├── phase2_intent_resolver.py    # 🔲 Parse NLP + map preferences
-├── phase3_matcher_explainer.py  # 🔲 Score + generate explanations
+├── phase2_intent_resolver.py    # ✅ DONE - 52 tests
+├── phase3_matcher_explainer.py  # ✅ DONE - 22 tests
 ├── phase4_playlist_agent.py     # 🔲 Agentic loop (plan/act/validate/adjust)
 └── phase5_interactive_cli.py    # 🔲 Multi-turn conversation interface
 
 tests/
 ├── test_recommender.py          # 103 core tests (don't modify)
 ├── test_phase1_knowledge_base.py # ✅ DONE - 38 tests
-├── test_phase2_intent_resolver.py # 🔲
-├── test_phase3_matcher_explainer.py # 🔲
+├── test_phase2_intent_resolver.py # ✅ DONE - 52 tests
+├── test_phase3_matcher_explainer.py # ✅ DONE - 22 tests
 ├── test_phase4_playlist_agent.py # 🔲
 ├── test_phase5_interactive_cli.py # 🔲
 └── test_guardrails.py           # 🔲 Security tests
@@ -66,12 +66,12 @@ assets/                          # For future diagrams
 - **Guardrails**: Input validation, prompt injection prevention, safe logging
 - **Tests**: `tests/test_phase2_intent_resolver.py` (target: >90% coverage)
 
-### Phase 3 🔲 Matcher-Explainer (Scoring + Explanations)
-- **File**: `src/phase3_matcher_explainer.py`
+### Phase 3 ✅ DONE (Matcher-Explainer)
+- **File**: `src/phase3_matcher_explainer.py` + `src/guardrails.py`
 - **What**: Call GMEWS from recommender + retrieve RAG context + generate explanations
 - **API**: `match_and_explain(user_prefs, songs, k=5, mode) → [(song, score, explanation), ...]`
-- **Guardrails**: Output sanitization, score validation, HTML escaping
-- **Tests**: `tests/test_phase3_matcher_explainer.py`
+- **Tests**: 22 passing in `tests/test_phase3_matcher_explainer.py`
+- **Imports**: `from src.phase3_matcher_explainer import MatcherExplainer, create_matcher_explainer`
 
 ### Phase 4 🔲 Playlist Agent (Agentic Loop)
 - **File**: `src/phase4_playlist_agent.py`
@@ -141,13 +141,13 @@ assets/                          # For future diagrams
 
 ## Current Status
 
-**Total Tests**: 141 passing ✅ (103 core + 38 Phase 1)
+**Total Tests**: 215 passing ✅ (103 core + 38 Phase 1 + 52 Phase 2 + 22 Phase 3)
 
 | Phase | Component | Status | Tests |
 |-------|-----------|--------|-------|
 | ✅ 1 | Knowledge Base | Complete | 38 ✅ |
-| 🔲 2 | Intent Resolver | Todo | 0 |
-| 🔲 3 | Matcher-Explainer | Todo | 0 |
+| ✅ 2 | Intent Resolver | Complete | 52 ✅ |
+| ✅ 3 | Matcher-Explainer | Complete | 22 ✅ |
 | 🔲 4 | Playlist Agent | Todo | 0 |
 | 🔲 5 | Interactive CLI | Todo | 0 |
 
@@ -209,15 +209,15 @@ git diff src/phaseN_*.py
 
 ---
 
-## Next Phase: Phase 2 (Intent Resolver)
+## Next Phase: Phase 4 (Playlist Agent)
 
 **Start here**: 
-1. Read `GARDRAILS.md` sections 1-2 (input validation, prompt injection)
-2. Stub exists at `src/phase2_intent_resolver.py`
-3. Test file at `tests/test_phase2_intent_resolver.py`
+1. Read `GUARDRAILS.md` sections 4 (agentic loop validation, max adjustments)
+2. Stub will be created at `src/phase4_playlist_agent.py`
+3. Test file will be created at `tests/test_phase4_playlist_agent.py`
 4. API spec in "5 Phases" section above
 
-**Key requirement**: Use Claude API with guardrails (sanitized input, schema validation, safe logging).
+**Key requirement**: Implement unified agentic loop (UNDERSTAND → PLAN → RETRIEVE → EXECUTE → VALIDATE → ADJUST) with max 3 adjustments to prevent infinite loops.
 
 ---
 
@@ -230,5 +230,5 @@ git diff src/phaseN_*.py
 
 ---
 
-**Last Updated**: 2026-07-21  
-**Ready**: Phase 1 complete, Phase 2 ready to start
+**Last Updated**: 2026-07-28  
+**Ready**: Phase 3 complete, Phase 4 ready to start
