@@ -208,6 +208,56 @@ def main(
         print("No recommendations found.")
 
 
+def interactive_mode() -> None:
+    """Interactive CLI for demoing the full system."""
+    print("\n" + "=" * 80)
+    print("🎵 MUSIC PLAYLIST GENERATOR - Interactive Demo".center(80))
+    print("=" * 80)
+    print("\nLoading system...")
+
+    # Initialize all phases
+    songs = load_songs("data/songs.csv")
+    kb = KnowledgeBase(songs)
+    resolver = IntentResolver()
+    matcher = MatcherExplainer(kb)
+    agent = PlaylistAgent(resolver, matcher, kb, songs)
+    cli = PlaylistCli(resolver, matcher, agent, kb, songs)
+
+    print(f"✓ Loaded {len(songs)} songs")
+    print("✓ Initialized all 5 phases (Knowledge Base → Intent Resolver → Matcher → Agent → CLI)")
+
+    print("\n" + "=" * 80)
+    print("EXAMPLES OF WHAT YOU CAN ASK:")
+    print("=" * 80)
+    print("""
+  📍 Simple requests:
+     "Give me happy pop songs"
+     "I want chill lo-fi music"
+     "Find me some energetic rock"
+
+  🎯 Specific playlists (auto-generates smart phases):
+     "Create a workout playlist"
+     "I need a study playlist"
+     "Build a dinner playlist"
+     "Make a party playlist"
+
+  🎵 Journey playlists (structured progressions):
+     "Create a playlist starting with energetic and ending with chill"
+     "Build a dinner playlist from uplifting to relaxed"
+     "Make a morning playlist: calm → energetic"
+     "Workout playlist: calm → intense"
+
+  ❌ Exit: Type 'quit', 'exit', or 'bye'
+""")
+
+    print("=" * 80)
+    print("START CHATTING (type your first request below):")
+    print("=" * 80 + "\n")
+
+    # Interactive loop
+    cli.run_interactive(prompt="🎧 You: ")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Music Recommender Simulation")
     parser.add_argument("--profile", type=str, default="high_energy_pop",
@@ -224,13 +274,19 @@ if __name__ == "__main__":
                         help="Show all scoring reasons (default: summary table)")
     parser.add_argument("--test-full-system", action="store_true",
                         help="Test all 5 phases integrated together with sample queries")
+    parser.add_argument("--interactive", "-i", action="store_true",
+                        help="Launch interactive demo mode (chat with the system)")
     args = parser.parse_args()
-    main(
-        profile_name=args.profile,
-        mode=args.mode,
-        diversity=args.diversity,
-        artist_penalty=args.artist_penalty,
-        genre_penalty=args.genre_penalty,
-        verbose=args.verbose,
-        test_full=args.test_full_system,
-    )
+
+    if args.interactive:
+        interactive_mode()
+    else:
+        main(
+            profile_name=args.profile,
+            mode=args.mode,
+            diversity=args.diversity,
+            artist_penalty=args.artist_penalty,
+            genre_penalty=args.genre_penalty,
+            verbose=args.verbose,
+            test_full=args.test_full_system,
+        )
