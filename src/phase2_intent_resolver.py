@@ -148,17 +148,52 @@ class IntentResolver:
         return "recommend"  # default
 
     def _extract_genre(self, message: str) -> Optional[str]:
-        """Extract primary genre from message (first match)."""
+        """Extract primary genre from message (first match, handles hyphens)."""
+        # Normalize: remove hyphens for flexible matching
+        # This allows "lo-fi" to match "lofi" and "hip hop" to match "hip-hop"
+        normalized_msg = message.replace("-", "")
+
         for genre in self.GENRES:
-            if genre in message:
-                return genre
+            normalized_genre = genre.replace("-", "")
+            if normalized_genre in normalized_msg:
+                return genre  # Return original genre with hyphen if present
         return None
 
     def _extract_mood(self, message: str) -> Optional[str]:
-        """Extract primary mood from message (first match)."""
+        """Extract primary mood from message (direct mood words or playlist type/genre keywords)."""
+        # Direct mood keywords
         for mood in self.MOODS:
             if mood in message:
                 return mood
+
+        # Playlist-type and genre keywords that map to moods
+        keyword_mood_map = {
+            "study": "calm",
+            "work": "calm",
+            "focus": "calm",
+            "focused": "calm",
+            "concentration": "calm",
+            "workout": "energetic",
+            "running": "energetic",
+            "gym": "energetic",
+            "cardio": "energetic",
+            "party": "energetic",
+            "sleep": "meditative",
+            "relax": "calm",
+            "relaxing": "calm",
+            # Genre-based mood defaults
+            "lofi": "chill",
+            "lo-fi": "chill",
+            "lo fi": "chill",
+            "ambient": "meditative",
+            "classical": "meditative",
+            "jazz": "relaxed",
+        }
+
+        for keyword, mood in keyword_mood_map.items():
+            if keyword in message:
+                return mood
+
         return None
 
     def _extract_energy(self, message: str) -> Optional[float]:
@@ -166,10 +201,14 @@ class IntentResolver:
         high_keywords = ["high", "energetic", "fast", "intense", "loud", "pumped"]
         low_keywords = ["low", "chill", "slow", "calm", "quiet", "relax", "peaceful"]
         mid_keywords = ["medium", "moderate", "balanced", "middle"]
+        lofi_keywords = ["lofi", "lo-fi", "lo fi"]  # lo-fi is typically low-energy
 
         if any(w in message for w in high_keywords):
             return 0.8
         if any(w in message for w in low_keywords):
+            return 0.3
+        # Lo-fi genre inherently suggests low energy
+        if any(w in message for w in lofi_keywords):
             return 0.3
         if any(w in message for w in mid_keywords):
             return 0.5
@@ -239,9 +278,9 @@ class IntentResolver:
         """Select scoring mode based on resolved preferences and explicit intent.
 
         Decision tree (in order of priority):
-        1. Explicit intent: "discover" → "discovery", "create_playlist" → "personality"
-        2. Niche preference → "niche-friendly"
-        3. Energy level: high → "genre-first", low → "discovery"
+        1. Niche preference → "niche-friendly"
+        2. Energy level (if explicitly constrained): high → "genre-first", low → "discovery"
+        3. Explicit intent: "discover" → "discovery", "create_playlist" → "personality"
         4. Default → "personality"
 
         Args:
@@ -251,24 +290,24 @@ class IntentResolver:
         Returns:
             Scoring mode: "genre-first", "discovery", "niche-friendly", "personality"
         """
-        # 1. Intent type has highest priority
+        energy = user_prefs.get("target_energy", 0.6)
+        popular = user_prefs.get("prefer_popular", True)
+
+        # 1. Niche preference (highest priority)
+        if not popular:
+            return "niche-friendly"
+
+        # 2. Energy level guidance (if explicitly constrained, use it even for playlists)
+        if energy >= 0.75:
+            return "genre-first"      # High energy → genre-focused for high-energy hits
+        elif energy <= 0.35:
+            return "genre-first"      # Low energy → genre-focused for calming/study playlists
+
+        # 3. Intent type
         if intent_type == "discover":
             return "discovery"
         if intent_type == "create_playlist":
             return "personality"
-
-        energy = user_prefs.get("target_energy", 0.6)
-        popular = user_prefs.get("prefer_popular", True)
-
-        # 2. Niche preference
-        if not popular:
-            return "niche-friendly"
-
-        # 3. Energy level guidance
-        if energy >= 0.75:
-            return "genre-first"      # High energy → predictable/genre focus
-        elif energy <= 0.35:
-            return "discovery"        # Low energy → exploratory
 
         # 4. Default
         return "personality"

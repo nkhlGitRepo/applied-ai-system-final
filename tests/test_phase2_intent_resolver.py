@@ -38,7 +38,7 @@ class TestIntegration:
         assert prefs["favorite_genre"] == "pop"  # default
         assert prefs["favorite_mood"] == "chill"  # extracted
         assert prefs["target_energy"] == 0.3     # low (chill)
-        assert mode == "discovery"                # low energy → discovery
+        assert mode == "genre-first"              # low energy → genre-first (prioritizes mood/genre)
         assert 0.6 <= confidence <= 1.0
 
     def test_resolve_with_genre_and_energy(self, resolver):
@@ -55,15 +55,15 @@ class TestIntegration:
         prefs, mode, confidence = resolver.resolve("find me relaxing acoustic music I've never heard")
 
         assert prefs["target_energy"] <= 0.4
-        assert mode == "discovery"
+        assert mode == "genre-first"  # low energy → genre-first (not discovery)
 
     def test_resolve_niche_via_low_energy(self, resolver):
-        """Low energy naturally leads to discovery mode."""
+        """Low energy naturally leads to genre-first mode."""
         prefs, mode, confidence = resolver.resolve("slow indie music")
 
         assert prefs["favorite_genre"] == "indie"
         assert prefs["target_energy"] == 0.3
-        assert mode == "discovery"
+        assert mode == "genre-first"  # low energy → genre-first (not discovery)
 
     def test_resolve_full_specification(self, resolver):
         """Request with multiple constraints."""
@@ -192,9 +192,9 @@ class TestModeSelection:
         assert mode == "genre-first"
 
     def test_mode_discovery_low_energy(self, resolver):
-        """Low energy → discovery."""
+        """Low energy → genre-first (not discovery)."""
         _, mode, _ = resolver.resolve("calm relaxing chill")
-        assert mode == "discovery"
+        assert mode == "genre-first"
 
     def test_mode_personality_default(self, resolver):
         """No strong signal → personality."""

@@ -95,7 +95,8 @@ class PlaylistAgent:
         recommendations = self._retrieve(plan)
 
         # 4. EXECUTE: Build playlist from recommendations (trim to target k)
-        playlist = self._execute(recommendations, phases, target_k=k)
+        target_energy = plan.get("base_prefs", {}).get("target_energy")
+        playlist = self._execute(recommendations, phases, target_k=k, target_energy=target_energy)
 
         # 5. VALIDATE + ADJUST loop (max 3 attempts)
         # Early exit if no songs: validation will always be 0.0, adjustments won't help
@@ -113,7 +114,7 @@ class PlaylistAgent:
             if attempt < self.max_adjustments - 1:
                 plan = self._adjust(plan, playlist, attempt)
                 recommendations = self._retrieve(plan)
-                playlist = self._execute(recommendations, phases, target_k=k)
+                playlist = self._execute(recommendations, phases, target_k=k, target_energy=target_energy)
 
         return playlist
 
@@ -148,12 +149,12 @@ class PlaylistAgent:
             phases = [p.strip() for p in parts if p.strip()]
             return phases if phases else ["general"]
 
-        # Strategy 2: "starting/beginning with X and ending with Y" pattern
+        # Strategy 2: "starting/beginning X and ending Y" pattern (with or without "with")
         if ("start" in message_lower or "begin" in message_lower) and "end" in message_lower:
-            # Extract phrases between "starting/beginning with" and "ending with"
             import re
+            # Match both "starting with X" and "starting X" formats
             match = re.search(
-                r'(?:start|begin)ing?\s+with\s+([^,]+?)(?:\s+and\s+)?(?:and\s+)?ending\s+with\s+(.+?)(?:\.|$)',
+                r'(?:start|begin)ing?\s+(?:with\s+)?([^,]+?)(?:\s+and\s+)?(?:and\s+)?ending\s+(?:with\s+)?(.+?)(?:\.|$)',
                 message_lower
             )
             if match:
@@ -170,30 +171,36 @@ class PlaylistAgent:
                 end_phase = match.group(2).strip()
                 return [start_phase, end_phase]
 
-        # Strategy 4: Playlist type keywords with implied journey
-        playlist_type_journeys = {
-            "workout": ["energetic", "intense"],
-            "dinner": ["uplifting", "chill"],
-            "lunch": ["uplifting", "chill"],
-            "breakfast": ["calm", "energetic"],
-            "brunch": ["calm", "uplifting"],
-            "study": ["calm", "focused"],
-            "focus": ["calm", "focused"],
-            "work": ["calm", "focused"],
-            "party": ["energetic", "uplifting"],
-            "relax": ["calm", "chill"],
-            "sleep": ["calm", "meditative"],
-            "morning": ["calm", "energetic"],
-            "evening": ["uplifting", "calm"],
-            "night": ["chill", "meditative"],
-            "chill": ["chill", "relaxed"],
-            "drive": ["calm", "energetic"],
-            "commute": ["calm", "focused"],
+        # Strategy 4: Playlist type keywords (single-phase, not journeys)
+        # Only explicit journey markers (→, from/to, starting/ending) create multi-phase playlists
+        # Playlist type keywords just affect mood/energy preferences, not phase structure
+        playlist_type_keywords = {
+            "workout": "intense",
+            "running": "intense",
+            "gym": "intense",
+            "cardio": "intense",
+            "dinner": "uplifting",
+            "lunch": "uplifting",
+            "breakfast": "energetic",
+            "brunch": "uplifting",
+            "study": "focused",
+            "focus": "focused",
+            "work": "focused",
+            "party": "energetic",
+            "relax": "chill",
+            "sleep": "meditative",
+            "sleeping": "meditative",
+            "morning": "energetic",
+            "evening": "chill",
+            "night": "meditative",
+            "chill": "chill",
+            "drive": "energetic",
+            "commute": "focused",
         }
 
-        for playlist_type, phases in playlist_type_journeys.items():
+        for playlist_type, mood in playlist_type_keywords.items():
             if playlist_type in message_lower:
-                return phases
+                return [mood]  # Single-phase, not a journey
 
         # Strategy 5: Check for explicit journey keywords
         journey_keywords = ["journey", "arc", "transition", "progression", "flow"]
@@ -254,13 +261,13 @@ class PlaylistAgent:
                 prefs["favorite_mood"] = "happy"
                 prefs["target_energy"] = 0.8
 
-            elif phase_lower in ["chill", "calm", "relaxing", "relaxed", "mellow"]:
-                prefs["favorite_mood"] = "chill"
+            elif phase_lower in ["chill", "calm", "relaxing", "relaxed", "mellow", "focused", "meditative"]:
+                prefs["favorite_mood"] = phase_lower if phase_lower in ["chill", "calm", "focused", "meditative"] else "chill"
                 prefs["target_energy"] = 0.3
                 prefs["likes_acoustic"] = True
-                # For chill moods, jazz/ambient/acoustic genres work better than pop/electronic
+                # For calm/focused moods, lofi/jazz/ambient/classical work better than pop/electronic/rock
                 if prefs.get("favorite_genre") in ["pop", "electronic", "hip-hop", "rock"]:
-                    prefs["favorite_genre"] = "jazz"
+                    prefs["favorite_genre"] = "lofi"
 
             elif phase_lower in ["intense", "energetic", "pumped", "dramatic", "powerful"]:
                 prefs["favorite_mood"] = "energetic"
@@ -317,16 +324,18 @@ class PlaylistAgent:
     # -----------------------------------------------------------------------
     # Step 4: EXECUTE
     # -----------------------------------------------------------------------
-    def _execute(self, recommendations: Dict, phases: List[str], target_k: int = None) -> Playlist:
+    def _execute(self, recommendations: Dict, phases: List[str], target_k: int = None, target_energy: float = None) -> Playlist:
         """Build final playlist by combining phase recommendations in order.
 
         Avoids duplicate songs across phases by skipping songs already added.
         Trims final playlist to target_k if specified.
+        For single-phase high-intensity requests, filters out low-energy songs.
 
         Args:
             recommendations: Dict with (song, score, explanation) per phase
             phases: Phase labels in order
             target_k: Target playlist size (trim if exceeded)
+            target_energy: Target energy level (used for single-phase high-intensity requests only)
 
         Returns:
             Playlist object
@@ -335,6 +344,12 @@ class PlaylistAgent:
         explanations = []
         phase_labels = []
         seen_song_ids = set()  # Track songs already added to avoid duplicates
+
+        # For single-phase high-intensity requests, filter low-energy songs
+        # (Multi-phase playlists can have varied energy per phase)
+        min_energy = None
+        if len(phases) == 1 and target_energy and target_energy >= 0.75:
+            min_energy = 0.65  # For single-phase high-intensity, avoid songs below 0.65 energy
 
         for phase in phases:
             if phase not in recommendations:
@@ -345,6 +360,10 @@ class PlaylistAgent:
                 song_id = song.get("id")
                 # Skip if we've already added this song (avoid duplicates across phases)
                 if song_id in seen_song_ids:
+                    continue
+
+                # For single-phase high-intensity requests, skip low-energy songs
+                if min_energy and song.get("energy", 0) < min_energy:
                     continue
 
                 songs.append(song)

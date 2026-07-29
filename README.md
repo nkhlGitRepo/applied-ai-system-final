@@ -101,6 +101,7 @@ python -m src.main -i
 - Simple requests: `"Give me happy pop songs"`
 - Playlist types: `"Create a workout playlist"`, `"I need a study playlist"`
 - Journey playlists: `"sad → happy"`, `"calm to energetic"`, `"Create a dinner playlist from uplifting to chill"`
+- Niche/unpopular songs: `"Give me some hidden gems"`, `"I want obscure indie songs"`, `"Find me underground rock"`
 - Custom sizes: `"Create a 5-song workout playlist"`, `"Give me 8 songs"`, `"playlist of size 15"`
 
 **Interactive commands:**

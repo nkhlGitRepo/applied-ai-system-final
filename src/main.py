@@ -247,6 +247,12 @@ def interactive_mode() -> None:
      "Make a morning playlist: calm → energetic"
      "Workout playlist: calm → intense"
 
+  💎 Niche/unpopular songs (use keywords like "hidden", "obscure", "underground"):
+     "Give me some hidden gems"
+     "I want obscure indie songs"
+     "Find me underground rock"
+     "Create a niche lo-fi mix"
+
   🎚️ Custom playlist sizes:
      "Create a 5-song workout playlist"
      "Give me a 8 song chill lofi mix"
