@@ -97,7 +97,13 @@ class PlaylistAgent:
     # Step 1: UNDERSTAND
     # -----------------------------------------------------------------------
     def _understand(self, user_message: str) -> List[str]:
-        """Extract phases from user message (e.g., "sad→happy" → ["sad", "happy"]).
+        """Extract phases from user message using multiple strategies.
+
+        Recognizes:
+        - Arrow notation: "sad → happy"
+        - "Starting/beginning with X, ending with Y" patterns
+        - "From X to Y" patterns
+        - Playlist type keywords: "workout", "dinner", "study", "party", "focus"
 
         Args:
             user_message: User's request
@@ -107,11 +113,7 @@ class PlaylistAgent:
         """
         message_lower = user_message.lower()
 
-        # Check for journey/arc keywords
-        journey_keywords = ["journey", "arc", "transition", "progression", "flow"]
-        is_journey = any(kw in message_lower for kw in journey_keywords)
-
-        # Extract phases from arrow notation (sad → happy, etc.)
+        # Strategy 1: Arrow notation (explicit)
         if "→" in message_lower:
             parts = message_lower.split("→")
             phases = [p.strip() for p in parts if p.strip()]
@@ -122,15 +124,57 @@ class PlaylistAgent:
             phases = [p.strip() for p in parts if p.strip()]
             return phases if phases else ["general"]
 
-        if not is_journey:
-            return ["general"]  # Single-phase request
+        # Strategy 2: "starting/beginning with X and ending with Y" pattern
+        if ("start" in message_lower or "begin" in message_lower) and "end" in message_lower:
+            # Extract phrases between "starting/beginning with" and "ending with"
+            import re
+            match = re.search(
+                r'(?:start|begin)ing?\s+with\s+([^,]+?)(?:\s+and\s+)?(?:and\s+)?ending\s+with\s+(.+?)(?:\.|$)',
+                message_lower
+            )
+            if match:
+                start_phase = match.group(1).strip()
+                end_phase = match.group(2).strip()
+                return [start_phase, end_phase]
 
-        # Extract moods/genres as phases
-        moods = ["happy", "sad", "chill", "intense", "energetic", "calm"]
-        found_moods = [m for m in moods if m in message_lower]
-        if found_moods:
-            return found_moods
+        # Strategy 3: "from X to Y" pattern
+        if " from " in message_lower and " to " in message_lower:
+            import re
+            match = re.search(r'from\s+([^,]+?)\s+to\s+(.+?)(?:\.|$)', message_lower)
+            if match:
+                start_phase = match.group(1).strip()
+                end_phase = match.group(2).strip()
+                return [start_phase, end_phase]
 
+        # Strategy 4: Playlist type keywords with implied journey
+        playlist_type_journeys = {
+            "workout": ["energetic", "intense"],
+            "dinner": ["uplifting", "chill"],
+            "study": ["calm", "focused"],
+            "focus": ["calm", "focused"],
+            "party": ["energetic", "uplifting"],
+            "relax": ["calm", "chill"],
+            "sleep": ["calm", "meditative"],
+            "morning": ["calm", "energetic"],
+            "chill": ["chill", "relaxed"],
+        }
+
+        for playlist_type, phases in playlist_type_journeys.items():
+            if playlist_type in message_lower:
+                return phases
+
+        # Strategy 5: Check for explicit journey keywords
+        journey_keywords = ["journey", "arc", "transition", "progression", "flow"]
+        is_journey = any(kw in message_lower for kw in journey_keywords)
+
+        if is_journey:
+            # Extract moods/genres as phases if journey keyword present
+            moods = ["happy", "sad", "chill", "intense", "energetic", "calm", "focused"]
+            found_moods = [m for m in moods if m in message_lower]
+            if found_moods:
+                return found_moods
+
+        # Default: single-phase request
         return ["general"]
 
     # -----------------------------------------------------------------------
