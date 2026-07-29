@@ -107,8 +107,8 @@ class PlaylistCli:
         except Exception as e:
             return f"❌ Error generating playlist: {str(e)[:100]}"
 
-        # Format output
-        return self._format_playlist(playlist)
+        # Format output (pass requested k for comparison)
+        return self._format_playlist(playlist, requested_k=k)
 
     def run_interactive(self, prompt: str = "🎧 You: ") -> None:
         """Multi-turn conversation loop with rate limiting and help.
@@ -227,11 +227,12 @@ class PlaylistCli:
         recent_count = self._get_recent_message_count(now)
         return recent_count < MAX_MESSAGES_PER_HOUR
 
-    def _format_playlist(self, playlist: Playlist) -> str:
+    def _format_playlist(self, playlist: Playlist, requested_k: int = None) -> str:
         """Format playlist for terminal display.
 
         Args:
             playlist: Generated Playlist object
+            requested_k: Requested playlist size (for comparison message)
 
         Returns:
             Formatted string ready for printing
@@ -247,8 +248,9 @@ class PlaylistCli:
             return f"❌ Internal error: playlist data mismatch ({len(playlist.songs)} songs, {len(playlist.explanations)} explanations)"
 
         # Build output
+        actual_count = len(playlist.songs)
         lines = [
-            f"\n✅ Playlist Generated ({len(playlist.songs)} songs, score: {playlist.validation_score:.1f})",
+            f"\n✅ Playlist Generated ({actual_count} songs, score: {playlist.validation_score:.1f})",
             "=" * 70,
         ]
 
@@ -266,7 +268,16 @@ class PlaylistCli:
             lines.append(f"   Genre: {genre} | Mood: {mood}")
             lines.append(f"   {safe_explanation}")
 
-        lines.append("\n" + "=" * 70 + "\n")
+        lines.append("\n" + "=" * 70)
+
+        # Add note if playlist is smaller than requested
+        if requested_k and actual_count < requested_k:
+            lines.append(f"\n📝 Note: Returned {actual_count} of {requested_k} requested songs.")
+            lines.append("   The catalog doesn't have enough songs matching your criteria")
+            lines.append("   (mood, genre, energy level, and no duplicates across phases).")
+            lines.append("   Try a different mood, genre, or smaller size for more options.")
+
+        lines.append("\n")
 
         return "\n".join(lines)
 
