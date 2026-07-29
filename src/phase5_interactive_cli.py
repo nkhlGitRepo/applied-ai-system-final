@@ -184,9 +184,20 @@ class PlaylistCli:
         import re
         query_lower = query.lower()
 
-        # Pattern 1: "N-song(s)" - more specific to avoid matching unrelated numbers
-        # Match word boundary before digit to avoid "I have 2 songs already" confusion
-        match = re.search(r'(?:^|\s)(\d+)\s*-?\s*songs?(?:\s|$)', query_lower)
+        # Pattern 1: "N song(s)" - with optional words in between
+        # Matches: "5 songs", "5-song", "12 happy pop songs", "10-song playlist", "8 songs of rock", etc.
+        # Two approaches: (A) "N-song" or "N song" (B) "N [words] songs"
+
+        # Approach A: "N-song(s)" or "N song(s)" as a compound modifier
+        match = re.search(r'\b(\d+)(?:\s|-)?songs?\b', query_lower)
+        if match:
+            size = int(match.group(1))
+            PlaylistAgent._validate_playlist_size(size)
+            return min(size, len(self.songs))
+
+        # Approach B: "N [words] songs" where words can be descriptive
+        # Matches: "12 happy pop songs", "15 chill lofi songs", etc.
+        match = re.search(r'\b(\d+)(?:\s+\w+)*\s+songs\b', query_lower)
         if match:
             size = int(match.group(1))
             PlaylistAgent._validate_playlist_size(size)
