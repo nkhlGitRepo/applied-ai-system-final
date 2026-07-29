@@ -29,3 +29,73 @@ id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness,po
 28,Country Roads,Country Band,country,nostalgic,0.55,100,0.60,0.50,0.75,51,2000,sung,standard,constant
 29,Deep Blues,Blues Master,blues,melancholic,0.50,80,0.45,0.55,0.82,47,2008,sung,standard,evolves
 30,Ethereal Spaces,Ambient Artist,ambient,meditative,0.20,55,0.60,0.20,0.90,38,2018,instrumental,polished,minimal
+31,Summer Breeze,Ocean Waves,indie,happy,0.65,108,0.80,0.70,0.55,54,2018,sung,standard,constant
+32,Thunderstorm,Rock Legends,rock,intense,0.88,160,0.42,0.65,0.12,68,2015,sung,polished,builds
+33,Pixel Dreams,Chiptune Masters,electronic,playful,0.72,120,0.85,0.82,0.08,46,2020,instrumental,polished,constant
+34,Rainy Days,Folk Singer,folk,sad,0.38,92,0.45,0.50,0.88,41,2010,sung,standard,evolves
+35,Desert Wind,Acoustic Duo,country,peaceful,0.48,100,0.62,0.45,0.82,52,2012,sung,standard,constant
+36,Bass & Soul,Funk Legend,funk,energetic,0.86,110,0.78,0.88,0.25,72,2018,rapped,polished,constant
+37,Starlight,Pop Queen,pop,romantic,0.60,102,0.82,0.65,0.30,75,2021,sung,polished,evolves
+38,Echoes,Minimal Wave,electronic,dark,0.45,95,0.35,0.50,0.05,38,2015,instrumental,polished,evolves
+39,Campfire Stories,Acoustic Band,folk,nostalgic,0.42,88,0.70,0.45,0.92,47,2008,sung,standard,constant
+40,Neon Paradise,Synth Pop,synthpop,happy,0.78,124,0.86,0.81,0.12,69,2019,sung,polished,builds
+41,Heavy Metal Heart,Metal Kings,metal,angry,0.94,160,0.35,0.70,0.08,61,2010,rapped,polished,builds
+42,Chill Vibes,Lo-Fi Beats,lofi,chill,0.35,76,0.58,0.55,0.75,44,2022,instrumental,lo-fi,constant
+43,Dancefloor Magic,House Masters,house,energetic,0.91,128,0.88,0.92,0.05,80,2020,instrumental,polished,constant
+44,Melancholy Waltz,String Quartet,classical,sad,0.30,60,0.40,0.15,0.88,45,1950,instrumental,polished,constant
+45,Urban Jungle,Trap Artist,hip-hop,dark,0.82,90,0.50,0.75,0.20,71,2019,rapped,polished,constant
+46,Oceanic Dreams,Ambient Soundscape,ambient,peaceful,0.22,55,0.65,0.25,0.92,39,2020,instrumental,polished,minimal
+47,Sunset Boulevard,Soul Singer,soul,romantic,0.55,90,0.75,0.60,0.70,58,2017,sung,polished,evolves
+48,Firestorm,EDM Producer,electronic,intense,0.95,138,0.75,0.88,0.08,77,2021,instrumental,polished,builds
+49,Morning Coffee,Indie Acoustic,indie,peaceful,0.40,85,0.70,0.50,0.80,48,2019,sung,standard,constant
+50,Vinyl Nights,Retro Wave,synthwave,nostalgic,0.70,108,0.58,0.68,0.18,63,1988,instrumental,standard,evolves
+51,Jazz Cafe,Cool Jazz Trio,jazz,relaxed,0.38,92,0.68,0.52,0.86,51,2016,instrumental,polished,constant
+52,Punk Energy,Punk Band,punk,angry,0.89,140,0.40,0.70,0.15,55,2005,rapped,standard,constant
+53,Gospel Heart,Gospel Choir,gospel,uplifting,0.75,110,0.88,0.65,0.75,64,2015,sung,polished,builds
+54,Techno Beat,Techno DJ,techno,energetic,0.93,130,0.50,0.85,0.10,74,2020,instrumental,polished,constant
+55,Acoustic Love,Singer Songwriter,pop,romantic,0.50,95,0.78,0.55,0.75,62,2018,sung,standard,evolves
+56,Drum & Bass Rush,Drum Master,drum_and_bass,intense,0.96,180,0.55,0.87,0.05,69,2018,instrumental,polished,builds
+57,Whispered Dreams,Indie Folk,folk,peaceful,0.35,80,0.65,0.40,0.88,43,2016,sung,standard,constant
+58,Cyberpunk City,Synth Noir,synthwave,dark,0.78,115,0.45,0.72,0.15,61,1987,instrumental,polished,evolves
+59,R&B Smooth,R&B Singer,rnb,romantic,0.58,95,0.80,0.68,0.50,73,2019,sung,polished,constant
+60,Forest Meditation,Nature Sounds,ambient,meditative,0.18,50,0.60,0.15,0.95,35,2021,instrumental,polished,minimal
+61,Disco Fever,Disco Legends,disco,happy,0.88,120,0.90,0.95,0.30,72,1977,sung,polished,constant
+62,Indie Rock Anthem,Indie Rock Band,indie rock,energetic,0.82,125,0.72,0.75,0.40,66,2012,sung,polished,builds
+63,Reggae Sunset,Reggae Vibes,reggae,peaceful,0.62,90,0.82,0.68,0.72,59,2018,sung,standard,constant
+64,Dark Ambient,Dark Artist,ambient,dark,0.25,60,0.30,0.20,0.85,37,2015,instrumental,polished,minimal
+65,Breakbeat Rhythm,Breakbeat Producer,breakbeat,intense,0.87,125,0.55,0.82,0.12,65,2014,instrumental,polished,constant
+66,Acoustic Guitar,Classical Guitar,folk,peaceful,0.32,85,0.70,0.35,0.95,52,2015,instrumental,polished,constant
+67,Deep House,House DJ,house,relaxed,0.68,100,0.65,0.72,0.10,70,2019,instrumental,polished,constant
+68,Indie Pop Anthem,Pop Band,indie pop,happy,0.74,120,0.79,0.76,0.38,64,2020,sung,polished,builds
+69,Metal Shred,Metal Guitarists,metal,intense,0.91,165,0.38,0.68,0.08,58,2011,sung,polished,builds
+70,Chill Hop Beats,Chill Hop Artist,chillhop,chill,0.48,90,0.65,0.62,0.68,54,2021,instrumental,lo-fi,constant
+71,Synthwave Dreams,Wave Synthesizer,synthwave,moody,0.76,112,0.50,0.70,0.14,65,1986,instrumental,polished,evolves
+72,Soul Train,Soul Queen,soul,energetic,0.81,108,0.84,0.78,0.58,76,2016,sung,polished,constant
+73,Afrobeat Groove,Afrobeat Master,afrobeat,energetic,0.83,110,0.80,0.85,0.48,71,2020,sung,polished,constant
+74,Indie Sadness,Sad Artist,indie,sad,0.35,95,0.40,0.50,0.60,45,2018,sung,standard,evolves
+75,Electronic Zen,Ambient Electronics,electronic,meditative,0.30,70,0.60,0.35,0.15,41,2020,instrumental,polished,minimal
+76,Country Heartbreak,Country Singer,country,sad,0.45,95,0.35,0.50,0.78,49,2008,sung,standard,evolves
+77,Jazz Fusion,Fusion Quartet,jazz,complex,0.72,120,0.65,0.60,0.30,56,2015,instrumental,polished,evolves
+78,Ambient Rain,Rain Sounds,ambient,peaceful,0.20,55,0.55,0.20,0.92,38,2022,instrumental,polished,minimal
+79,Hip Hop Flow,Hip Hop Artist,hip-hop,energetic,0.85,95,0.62,0.80,0.20,75,2020,rapped,polished,constant
+80,Ethereal Vocals,Ethereal Singer,pop,peaceful,0.42,90,0.75,0.50,0.70,60,2019,sung,polished,constant
+81,Techno Industrial,Industrial Synth,techno,dark,0.88,135,0.40,0.80,0.08,66,2017,instrumental,polished,constant
+82,Ballad of Hope,Ballad Singer,pop,romantic,0.48,92,0.80,0.55,0.72,67,2018,sung,polished,evolves
+83,Bluegrass Morning,Bluegrass Band,country,happy,0.60,100,0.75,0.58,0.85,53,2010,sung,polished,constant
+84,Minimal Beats,Minimalist Producer,electronic,focused,0.55,110,0.55,0.65,0.12,48,2021,instrumental,polished,constant
+85,Soul Searching,Soul Explorer,soul,introspective,0.50,88,0.70,0.62,0.75,60,2017,sung,polished,evolves
+86,Indie Dream,Dream Pop,indie,dreamy,0.52,100,0.72,0.60,0.55,57,2019,sung,standard,constant
+87,Future Bass,Future Music,electronic,uplifting,0.72,120,0.80,0.75,0.08,73,2021,instrumental,polished,builds
+88,Blues Journey,Blues Traveler,blues,sad,0.48,85,0.45,0.58,0.80,51,2012,sung,standard,evolves
+89,Punk Rock Rebellion,Punk Rockers,rock,angry,0.87,145,0.35,0.72,0.18,62,2006,sung,standard,constant
+90,Trance Journey,Trance Master,trance,uplifting,0.84,135,0.75,0.80,0.10,72,2016,instrumental,polished,builds
+91,Folk Storyteller,Folk Narrator,folk,nostalgic,0.45,88,0.65,0.50,0.88,50,2014,sung,standard,constant
+92,Ambient Piano,Piano Artist,classical,peaceful,0.28,60,0.70,0.25,0.92,54,2020,instrumental,polished,constant
+93,Dancehall Vibes,Dancehall Artist,reggae,energetic,0.86,95,0.81,0.88,0.45,68,2019,rapped,polished,constant
+94,Orchestral Epic,Orchestra,classical,intense,0.75,130,0.70,0.40,0.92,69,1900,instrumental,polished,builds
+95,Electronic Love,Synth Pop Artist,synthpop,romantic,0.65,110,0.82,0.70,0.15,70,2020,sung,polished,evolves
+96,Indie Guitar,Indie Guitarist,indie,peaceful,0.48,95,0.68,0.55,0.75,55,2017,sung,standard,constant
+97,Deep Techno,Techno Minimalist,techno,meditative,0.62,120,0.50,0.68,0.08,65,2018,instrumental,polished,constant
+98,Singer Songwriter,Acoustic Singer,pop,introspective,0.45,88,0.72,0.50,0.82,63,2016,sung,standard,evolves
+99,Jazz Standards,Classic Jazz,jazz,romantic,0.50,95,0.75,0.55,0.85,59,1960,instrumental,polished,constant
+100,Synth Wave Nostalgia,Retrowave,synthwave,nostalgic,0.73,110,0.55,0.72,0.16,64,1985,instrumental,polished,evolves
