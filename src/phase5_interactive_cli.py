@@ -12,7 +12,7 @@ Public API:
 
 import time
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
 from src.phase2_intent_resolver import IntentResolver
 from src.phase3_matcher_explainer import MatcherExplainer
@@ -20,21 +20,24 @@ from src.phase4_playlist_agent import PlaylistAgent, Playlist
 from src.phase1_knowledge_base import KnowledgeBase
 from src.guardrails import sanitize_user_input, sanitize_explanation
 
+# Constants
+MAX_MESSAGES_PER_HOUR = 100
+MAX_SESSION_AGE_DAYS = 30
+
 
 @dataclass
 class ConversationSession:
-    """Track conversation state: messages and rate limit."""
+    """Track conversation state: messages and session age."""
     messages: List[Tuple[str, float]] = field(default_factory=list)
-    playlists: List[Tuple[Playlist, float]] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
 
     def age_seconds(self) -> float:
         """How old is this session (in seconds)."""
         return time.time() - self.created_at
 
-    def is_expired(self, max_age_days: int = 30) -> bool:
-        """Check if session has expired (default 30 days)."""
-        max_age_seconds = max_age_days * 24 * 3600
+    def is_expired(self) -> bool:
+        """Check if session has expired (max 30 days)."""
+        max_age_seconds = MAX_SESSION_AGE_DAYS * 24 * 3600
         return self.age_seconds() > max_age_seconds
 
 
@@ -64,7 +67,6 @@ class PlaylistCli:
         self.kb = kb
         self.songs = songs
         self.session = ConversationSession()
-        self.max_messages_per_hour = 100
 
     def run_single_query(self, query: str) -> str:
         """Process single query and return formatted playlist.
@@ -77,22 +79,21 @@ class PlaylistCli:
         """
         # Validate and sanitize input
         sanitized = sanitize_user_input(query)
+        now = time.time()
 
         # Check rate limit
-        if not self._check_rate_limit():
-            return "❌ Rate limit exceeded: max 100 messages per hour"
+        if not self._check_rate_limit(now):
+            remaining = self.messages_remaining(now)
+            return f"❌ Rate limit exceeded: max {MAX_MESSAGES_PER_HOUR} messages per hour ({remaining} remaining)"
 
         # Track message
-        self.session.messages.append((sanitized, time.time()))
+        self.session.messages.append((sanitized, now))
 
         # Generate playlist (Phases 2-4)
         try:
             playlist = self.agent.plan_and_execute(sanitized)
         except Exception as e:
             return f"❌ Error generating playlist: {str(e)[:100]}"
-
-        # Track playlist
-        self.session.playlists.append((playlist, time.time()))
 
         # Format output
         return self._format_playlist(playlist)
@@ -134,18 +135,30 @@ class PlaylistCli:
     # -----------------------------------------------------------------------
     # Private methods
     # -----------------------------------------------------------------------
-    def _check_rate_limit(self) -> bool:
+    def _get_recent_message_count(self, now: float) -> int:
+        """Count messages in last hour (helper to avoid duplication).
+
+        Args:
+            now: Current timestamp
+
+        Returns:
+            Number of messages in last 60 minutes
+        """
+        one_hour_ago = now - 3600
+        recent_messages = [m for m, t in self.session.messages if t > one_hour_ago]
+        return len(recent_messages)
+
+    def _check_rate_limit(self, now: float) -> bool:
         """Check if user exceeds rate limit (max 100 messages/hour).
+
+        Args:
+            now: Current timestamp
 
         Returns:
             True if under limit, False if exceeded
         """
-        now = time.time()
-        one_hour_ago = now - 3600
-
-        # Count messages in last hour
-        recent_messages = [m for m, t in self.session.messages if t > one_hour_ago]
-        return len(recent_messages) < self.max_messages_per_hour
+        recent_count = self._get_recent_message_count(now)
+        return recent_count < MAX_MESSAGES_PER_HOUR
 
     def _format_playlist(self, playlist: Playlist) -> str:
         """Format playlist for terminal display.
@@ -161,6 +174,10 @@ class PlaylistCli:
             return "❌ No songs found. Try a different request (score: {:.1f})".format(
                 playlist.validation_score
             )
+
+        # Verify data integrity (songs and explanations should match)
+        if len(playlist.songs) != len(playlist.explanations):
+            return f"❌ Internal error: playlist data mismatch ({len(playlist.songs)} songs, {len(playlist.explanations)} explanations)"
 
         # Build output
         lines = [
@@ -186,29 +203,32 @@ class PlaylistCli:
 
         return "\n".join(lines)
 
-    def messages_remaining(self) -> int:
+    def messages_remaining(self, now: float = None) -> int:
         """How many messages left before hitting rate limit.
+
+        Args:
+            now: Current timestamp (optional, defaults to current time)
 
         Returns:
             Integer count of remaining messages in current hour window
         """
-        now = time.time()
-        one_hour_ago = now - 3600
-        recent_messages = [m for m, t in self.session.messages if t > one_hour_ago]
-        return self.max_messages_per_hour - len(recent_messages)
+        if now is None:
+            now = time.time()
+        recent_count = self._get_recent_message_count(now)
+        return MAX_MESSAGES_PER_HOUR - recent_count
 
     def session_stats(self) -> dict:
         """Get conversation session statistics.
 
         Returns:
-            Dict with messages_count, playlists_count, age_minutes, expired
+            Dict with messages_count, age_seconds, expired, messages_remaining
         """
+        now = time.time()
         return {
             "messages_count": len(self.session.messages),
-            "playlists_count": len(self.session.playlists),
             "age_seconds": self.session.age_seconds(),
             "expired": self.session.is_expired(),
-            "messages_remaining": self.messages_remaining(),
+            "messages_remaining": self.messages_remaining(now),
         }
 
 

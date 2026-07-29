@@ -123,7 +123,6 @@ class TestIntegration:
         cli.run_single_query("rock songs")
 
         assert len(cli.session.messages) == 2
-        assert len(cli.session.playlists) == 2
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +133,8 @@ class TestRateLimiting:
 
     def test_check_rate_limit_under_limit(self, cli):
         """User under limit can query."""
-        assert cli._check_rate_limit() is True
+        now = time.time()
+        assert cli._check_rate_limit(now) is True
 
     def test_check_rate_limit_at_limit(self, cli):
         """User at exactly 100 messages still allowed."""
@@ -143,7 +143,7 @@ class TestRateLimiting:
         for i in range(100):
             cli.session.messages.append((f"query {i}", now - i))
 
-        assert cli._check_rate_limit() is False
+        assert cli._check_rate_limit(now) is False
 
     def test_check_rate_limit_exceeds(self, cli):
         """User exceeding limit is rejected."""
@@ -151,7 +151,7 @@ class TestRateLimiting:
         for i in range(101):
             cli.session.messages.append((f"query {i}", now - i))
 
-        assert cli._check_rate_limit() is False
+        assert cli._check_rate_limit(now) is False
 
     def test_check_rate_limit_old_messages_dont_count(self, cli):
         """Messages older than 1 hour don't count toward limit."""
@@ -163,7 +163,7 @@ class TestRateLimiting:
             cli.session.messages.append((f"old {i}", one_hour_ago))
 
         # Should still be under limit
-        assert cli._check_rate_limit() is True
+        assert cli._check_rate_limit(now) is True
 
     def test_run_single_query_enforces_rate_limit(self, cli):
         """run_single_query() rejects when rate limit exceeded."""
@@ -219,12 +219,13 @@ class TestSessionManagement:
         # Each message is (text, timestamp) tuple
         assert all(isinstance(m, tuple) and len(m) == 2 for m in cli.session.messages)
 
-    def test_session_tracks_playlists(self, cli):
-        """Session records each playlist with timestamp."""
+    def test_session_tracks_messages_with_timestamps(self, cli):
+        """Session records message timestamps."""
         cli.run_single_query("query 1")
         cli.run_single_query("query 2")
 
-        assert len(cli.session.playlists) == 2
+        # Each message should have a timestamp
+        assert all(isinstance(m, tuple) and len(m) == 2 for m in cli.session.messages)
 
     def test_session_age_calculation(self, cli):
         """Session age is calculated correctly."""
@@ -251,7 +252,6 @@ class TestSessionManagement:
         stats = cli.session_stats()
 
         assert stats["messages_count"] == 1
-        assert stats["playlists_count"] == 1
         assert stats["age_seconds"] >= 0
         assert stats["expired"] is False
         assert stats["messages_remaining"] == 99
