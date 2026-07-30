@@ -1,0 +1,57 @@
+graph TB
+    User["👤 User Input<br/>Natural Language Query"]
+
+    subgraph "Phase 1: Knowledge Base"
+        KB["Knowledge Base (RAG)<br/>- Song Catalog<br/>- Genre/Artist Context<br/>- Similarity Matching"]
+    end
+
+    subgraph "Phase 2: Intent Resolver"
+        Parser["Intent Parser<br/>- Extract: Genre, Mood<br/>- Energy Level<br/>- Niche Preference"]
+        Confidence["Confidence Scoring<br/>0.5-1.0"]
+    end
+
+    subgraph "Phase 3: Matcher & Explainer"
+        Scorer["GMEWS Scorer<br/>Genre + Mood + Energy<br/>+ Acousticness"]
+        Explainer["Explanation Generator<br/>+ RAG Context"]
+    end
+
+    subgraph "Phase 4: Playlist Agent"
+        Understand["Step 1: Understand<br/>Detect Phases/Journeys"]
+        Plan["Step 2: Plan<br/>Create Preferences"]
+        Retrieve["Step 3: Retrieve<br/>Get Candidates"]
+        Execute["Step 4: Execute<br/>Build Playlist"]
+        Validate["Step 5: Validate<br/>Quality Check"]
+        Adjust["Step 6: Adjust<br/>Relax Constraints"]
+    end
+
+    subgraph "Phase 5: Interactive CLI"
+        CLI["Interactive Chat Interface<br/>- Rate Limiting<br/>- Session Management"]
+    end
+
+    subgraph "Testing & Validation"
+        Tests["310 Unit Tests<br/>- Phase 1-5 Coverage<br/>- Edge Cases<br/>- Integration Tests"]
+        Human["👨‍💼 Human Review<br/>- Validation Score ≥0.7<br/>- Playlist Quality<br/>- User Feedback"]
+    end
+
+    Feedback["Feedback Loop<br/>Adjust Constraints"]
+
+    User -->|"Natural Language"| Parser
+    Parser -->|"Extracted Preferences"| Confidence
+    KB -->|"Context & Similar Songs"| Explainer
+    Parser -->|"Preferences + Mode"| Understand
+    Understand -->|"Phases Detected"| Plan
+    Plan -->|"Phase-specific Prefs"| Retrieve
+    KB -->|"Song Recommendations"| Retrieve
+    Retrieve -->|"Candidates"| Execute
+    Execute -->|"Initial Playlist"| Validate
+    Validate -->|"Score < 0.7?"| Adjust
+    Adjust -->|"Relaxed Constraints"| Retrieve
+    Validate -->|"Score ≥ 0.7"| Scorer
+    Scorer -->|"Scored Songs"| Explainer
+    Explainer -->|"Recommendations + Explanations"| CLI
+    CLI -->|"Final Playlist"| User
+
+    User -->|"Testing"| Tests
+    CLI -->|"Results"| Human
+    Human -->|"Quality Assessment"| Feedback
+    Feedback -->|"Iterate"| Understand
