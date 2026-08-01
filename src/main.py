@@ -13,12 +13,14 @@ from .recommender import (
     load_songs, recommend_songs, recommend_songs_with_diversity, SCORING_MODES,
     format_recommendation_summary, format_recommendation_detailed
 )
+from .data_loader import load_and_merge_songs
 from .phase1_knowledge_base import KnowledgeBase
 from .phase2_intent_resolver import IntentResolver
 from .phase3_matcher_explainer import MatcherExplainer
 from .phase4_playlist_agent import PlaylistAgent
 from .phase5_interactive_cli import PlaylistCli
 import argparse
+from typing import Optional, List
 
 
 # User preference profiles for testing
@@ -208,15 +210,28 @@ def main(
         print("No recommendations found.")
 
 
-def interactive_mode() -> None:
-    """Interactive CLI for demoing the full system."""
+def interactive_mode(data_source: str = "data/songs.csv", data_sources: Optional[List[str]] = None) -> None:
+    """Interactive CLI for demoing the full system with custom data source(s).
+
+    Args:
+        data_source: Path to single data file (CSV or JSON, default: data/songs.csv)
+        data_sources: List of data files to merge. If provided, takes precedence over data_source.
+    """
     print("\n" + "=" * 80)
     print("🎵 MUSIC PLAYLIST GENERATOR - Interactive Demo".center(80))
     print("=" * 80)
-    print("\nLoading system...")
 
-    # Initialize all phases
-    songs = load_songs("data/songs.csv")
+    # Load data: merge if multiple sources provided, otherwise load single source
+    try:
+        if data_sources:
+            print(f"\nLoading and merging {len(data_sources)} data source(s)...")
+            songs = load_and_merge_songs(data_sources)
+        else:
+            print(f"\nLoading system from: {data_source}")
+            songs = load_songs(data_source)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"❌ Error loading data: {e}")
+        return
     kb = KnowledgeBase(songs)
     resolver = IntentResolver()
     matcher = MatcherExplainer(kb)
@@ -290,10 +305,14 @@ if __name__ == "__main__":
                         help="Test all 5 phases integrated together with sample queries")
     parser.add_argument("--interactive", "-i", action="store_true",
                         help="Launch interactive demo mode (chat with the system)")
+    parser.add_argument("--data-source", type=str, default="data/songs.csv",
+                        help="Load single data file (CSV or JSON, default: data/songs.csv). Ignored if --data-sources is provided.")
+    parser.add_argument("--data-sources", type=str, nargs="+",
+                        help="Merge multiple data sources (takes precedence over --data-source). Example: --data-sources data/songs.csv data/songs_example.json")
     args = parser.parse_args()
 
     if args.interactive:
-        interactive_mode()
+        interactive_mode(data_source=args.data_source, data_sources=args.data_sources)
     else:
         main(
             profile_name=args.profile,

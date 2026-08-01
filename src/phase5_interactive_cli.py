@@ -19,6 +19,7 @@ from src.phase3_matcher_explainer import MatcherExplainer
 from src.phase4_playlist_agent import PlaylistAgent, Playlist
 from src.phase1_knowledge_base import KnowledgeBase
 from src.guardrails import sanitize_user_input, sanitize_explanation
+from src.data_loader import load_songs, load_and_merge_songs
 
 # Constants
 MAX_MESSAGES_PER_HOUR = 100
@@ -121,6 +122,7 @@ class PlaylistCli:
         print("=" * 80)
         print("\n📝 Commands:")
         print("  • Type your playlist request and press Enter")
+        print("  • 'load_data <file>' → Load a different data source (CSV or JSON)")
         print("  • 'help' or '?' → Show available commands")
         print("  • 'stats' → Show session statistics")
         print("  • 'exit', 'quit', 'bye', 'goodbye' → Exit the chat\n")
@@ -132,6 +134,22 @@ class PlaylistCli:
 
                 # Handle empty input
                 if not user_input:
+                    continue
+
+                # Handle load_data_merge command (merge multiple sources)
+                if user_input.lower().startswith("load_data_merge "):
+                    file_list = user_input[16:].strip()
+                    files = [f.strip() for f in file_list.split()]
+                    if files:
+                        self._load_merged_data_sources(files)
+                    continue
+
+                # Handle load_data command (single source)
+                if user_input.lower().split()[0] == "load_data" if user_input.lower().split() else False:
+                    parts = user_input.split(maxsplit=1)
+                    if len(parts) > 1:
+                        data_file = parts[1].strip()
+                        self._load_data_source(data_file)
                     continue
 
                 # Handle help command
@@ -320,9 +338,15 @@ class PlaylistCli:
         print("   'Give me 8 songs of pop music'")
         print("   'lofi playlist of size 12'")
         print("\n⌨️  Commands:")
+        print("   'load_data <file>' → Load a single data source (CSV or JSON)")
+        print("   'load_data_merge <file1> <file2> ...' → Merge multiple data sources")
         print("   'help' or '?' → Show this help text")
         print("   'stats' → Show session statistics")
         print("   'exit', 'quit', 'bye', 'goodbye' → Exit the chat")
+        print("\n📂 Data Source Examples:")
+        print("   'load_data data/songs.csv'")
+        print("   'load_data data/songs_example.json'")
+        print("   'load_data_merge data/songs.csv data/songs_example.json'")
         print("=" * 70 + "\n")
 
     def _show_session_stats(self) -> None:
@@ -342,6 +366,86 @@ class PlaylistCli:
             print(f"✅ Session active for {days_left:.1f} more days")
 
         print("=" * 70 + "\n")
+
+    def _load_data_source(self, data_file: str) -> None:
+        """Load a new data source and reinitialize the system.
+
+        Args:
+            data_file: Path to CSV or JSON data file
+
+        Note:
+            - Conversation history is cleared when switching datasets
+            - All 5 phases are reinitialized from scratch
+            - Rate limiting is preserved but message count resets
+        """
+        try:
+            print(f"\n📂 Loading data from {data_file}...")
+            new_songs = load_songs(data_file)
+            print(f"✓ Loaded {len(new_songs)} songs")
+
+            # Recreate all phases from scratch (safer than partial updates)
+            new_kb = KnowledgeBase(new_songs)
+            new_resolver = IntentResolver()
+            new_matcher = MatcherExplainer(new_kb)
+            new_agent = PlaylistAgent(new_resolver, new_matcher, new_kb, new_songs)
+
+            # Commit changes (all-or-nothing to prevent inconsistent state)
+            self.songs = new_songs
+            self.kb = new_kb
+            self.resolver = new_resolver
+            self.matcher = new_matcher
+            self.agent = new_agent
+
+            # Clear conversation history since dataset changed
+            self.session = ConversationSession()
+
+            print(f"✓ Reinitialized system with new data source")
+            print(f"ℹ️  Conversation history cleared (new dataset)\n")
+
+        except FileNotFoundError:
+            print(f"✗ Error: File not found: {data_file}\n")
+        except (ValueError, IOError) as e:
+            print(f"✗ Error loading data: {e}\n")
+
+    def _load_merged_data_sources(self, data_files: list) -> None:
+        """Load and merge multiple data sources into one catalog.
+
+        Args:
+            data_files: List of file paths (CSV or JSON)
+
+        Note:
+            - Duplicate songs (by ID) are automatically removed
+            - Conversation history is cleared when dataset changes
+            - All files must be valid; if any fails, nothing is loaded
+        """
+        try:
+            print(f"\n📂 Merging {len(data_files)} data source(s)...")
+            merged_songs = load_and_merge_songs(data_files)
+            print(f"✓ Merged {len(merged_songs)} unique songs")
+
+            # Recreate all phases from scratch with merged data
+            new_kb = KnowledgeBase(merged_songs)
+            new_resolver = IntentResolver()
+            new_matcher = MatcherExplainer(new_kb)
+            new_agent = PlaylistAgent(new_resolver, new_matcher, new_kb, merged_songs)
+
+            # Commit changes
+            self.songs = merged_songs
+            self.kb = new_kb
+            self.resolver = new_resolver
+            self.matcher = new_matcher
+            self.agent = new_agent
+
+            # Clear conversation history
+            self.session = ConversationSession()
+
+            print(f"✓ Reinitialized system with merged data")
+            print(f"ℹ️  Conversation history cleared (new dataset)\n")
+
+        except FileNotFoundError as e:
+            print(f"✗ Error: File not found: {e}\n")
+        except (ValueError, IOError) as e:
+            print(f"✗ Error merging data: {e}\n")
 
     def messages_remaining(self, now: float = None) -> int:
         """How many messages left before hitting rate limit.

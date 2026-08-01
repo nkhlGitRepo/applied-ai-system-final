@@ -683,6 +683,78 @@ Error Handling & Recovery (all handled gracefully):
 
 ---
 
+## Stretch Feature 1: RAG Enhancement
+
+The system evolved from a hardcoded static CSV to support dynamic, multi-format data sources with single and multi-source loading. This improvement unlocked several benefits:
+
+Before: Songs were loaded only from a single CSV file at startup. To test with different datasets, users had to modify code or file paths.
+
+After: Users can now:
+- Load from CSV or JSON files interchangeably
+- Switch data sources mid-session with `load_data data/my_songs.json`
+- Merge multiple sources into one catalog interactively with `load_data_merge file1.csv file2.json`
+- Merge from command line with `--data-sources`: `python -m src.main -i --data-sources data/songs.csv data/songs_example.json`
+- Use the system with custom catalogs (local collections, exported playlists, test datasets)
+- Start interactive mode with a single data source: `python -m src.main -i --data-source data/songs_example.json`
+
+Example (single source switching):
+```bash
+# Start with test set (37 songs: 22 duplicates + 15 unique)
+python -m src.main -i --data-source data/songs_example.json
+
+🎧 You: give me happy pop songs
+✓ Loaded 2 pop songs
+
+# Switch to full catalog mid-session
+🎧 You: load_data data/songs.csv
+✓ Loaded 100 songs
+✓ Reinitialized system with new data source
+
+🎧 You: give me happy pop songs
+✓ Loaded 8 pop songs (more variety now)
+```
+
+Example (multi-source merge from command line):
+```bash
+# Start with merged sources from command line
+python -m src.main -i --data-sources data/songs.csv data/songs_example.json
+
+Loading and merging 2 data source(s)...
+✓ Merged 115 unique songs (duplicates automatically removed)
+✓ Initialized all 5 phases
+
+🎧 You: give me happy pop songs
+✓ Loaded 12 pop songs (expanded variety from merged sources)
+```
+
+Example (multi-source merge during interactive session):
+```bash
+# Start with one dataset, merge more mid-session
+python -m src.main -i --data-source data/songs.csv
+
+🎧 You: give me happy pop songs
+✓ Loaded 8 pop songs
+
+# Merge additional sources interactively
+🎧 You: load_data_merge data/songs.csv data/songs_example.json
+📂 Merging 2 data source(s)...
+✓ Merged 115 unique songs
+✓ Reinitialized system with merged data
+
+🎧 You: give me happy pop songs
+✓ Loaded 12 pop songs (more options now)
+```
+
+Impact on Output Quality:
+- Small datasets (37 songs) reveal edge cases and limitations early
+- Full datasets (100 songs) provide richer recommendations with better diversity
+- Merged datasets (115+ songs) combine multiple sources while deduplicating automatically
+- Custom datasets let users test domain-specific music (classical only, indie gems, etc.)
+- Switching/merging data sources shows how recommendations scale—what works for 37 songs differs from 115+
+
+The modular data loader (`src/data_loader.py`) handles validation, type conversion, deduplication, and error reporting consistently across formats and multiple sources, making the system resilient to data format variations.
+
+---
 
 ## Reflection
 
@@ -690,6 +762,6 @@ Read and complete `model_card.md`:
 
 [**Model Card**](model_card.md)
 
-Building this system taught me that problem-solving in AI is really about making conscious trade-offs. I chose interpretability over raw accuracy, safety over speed, and modularity over simplicity. None of these choices were obviously "right"—they just reflected what mattered most for this specific problem. I also realized how design decisions hide their consequences until much later. Binary genre matching seems fair when you're coding it, but then you discover it starves niche music fans while flooding mainstream users with options. The real lesson is that good engineering means being upfront about what you're optimizing for and honest about the costs.  
+Building this system taught me that problem solving in AI is really about making several trade offs to enusre the best overall result. I was forced to make many several design choices, including safety over speed and modularity over simplicity. None of these choices were the clear correct choice, but they just reflected my overall design philosophy for this specific problem. I also realized how design decisions hide their consequences until much later. Binary genre matching was an approach that I had used throughout this project including before the extenstions.  However, during the testing phase I discovered that recommends very little niche music even when people specifically request it.  It ended up prioritizing popular mainstream music to a very high degree. The thing I most got out of creating this playlist agent is that good AI design means understanding how to be as accurate as possible with cost benefit analysis and using this knowledge to guide the AI assistant through the process.  
 
 
