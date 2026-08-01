@@ -756,6 +756,28 @@ The modular data loader (`src/data_loader.py`) handles validation, type conversi
 
 ---
 
+## System Evaluation
+
+The `scripts/eval_system.py` script runs the system against 13 predefined test cases covering single-phase requests, multi-phase journeys, specific sizes, and edge cases. It generates a detailed report with pass/fail status, confidence scores (0.0-1.0), and phase validation.
+
+Run the evaluation:
+```bash
+python3 scripts/eval_system.py
+```
+
+Output includes:
+- Pass/fail status for each test (100% pass rate = all test cases working)
+- Confidence score per test based on playlist accuracy, validation, and phase correctness
+- Detailed breakdown showing extracted phases, playlist size, and validation score
+- Confidence distribution chart (Excellent/Good/Fair/Poor tiers)
+
+Example test cases:
+- "Create a playlist starting sad and ending happy" (multi-phase journey)
+- "I want an 18 song swimming playlist that goes from intense to slow" (complex scenario)
+- "Build a workout playlist" (single-phase with keyword)
+
+---
+
 ## Reflection
 
 Read and complete `model_card.md`:
