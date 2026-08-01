@@ -4,7 +4,7 @@
 
 ---
 
-## Multi-Step Reasoning with Intermediate Traces (SF1 Enhancement)
+## Stretch Feature 2: Agentic Workflow Enhancement
 
 ### Implementation
 Added comprehensive reasoning trace logging to capture all 6 steps of the agentic loop in Phase 4:
@@ -16,68 +16,115 @@ Added comprehensive reasoning trace logging to capture all 6 steps of the agenti
 5. **VALIDATE** - Check if playlist meets user intent (0.7 threshold)
 6. **ADJUST** - Refine plan and retry if validation score < 0.7
 
-### Components
 
-- **`src/reasoning_trace.py`** - Core tracing infrastructure
-  - `TraceStep`: Captures step name, inputs, outputs, and reasoning
-  - `ReasoningTrace`: Complete trace for one query
-  - `TraceCollector`: Accumulates trace steps during execution
-  - `TraceLogger`: Saves traces to JSON and Markdown formats
+### Example Traces
 
-- **Modified `src/phase4_playlist_agent.py`**
-  - `plan_and_execute()` now accepts optional `TraceCollector` parameter
-  - Emits detailed trace events at each of 6 agentic steps
-  - Records input/output data and human-readable reasoning for each step
-
-- **Modified `src/phase5_interactive_cli.py`**
-  - Initialized `TraceLogger` in CLI constructor
-  - `run_single_query()` now creates trace, passes to agent, saves to log
-  - Traces saved as both JSON (data) and Markdown (human-readable)
-
-### Output Artifacts
-
-All reasoning traces saved to `logs/reasoning_traces/`:
-- `trace_YYYYMMDD_HHMMSS.json` - Structured trace data
-- `trace_YYYYMMDD_HHMMSS.md` - Human-readable reasoning narrative
-
-Each trace includes:
-- Query text and timestamp
-- All 6 reasoning steps with inputs/outputs
-- Final validation score and playlist metrics
-
-### Usage
-
-Traces are automatically captured when queries run through interactive or single-query mode:
-```python
-# Single query (traces auto-saved)
-output = cli.run_single_query("Create a sad to happy journey")
-
-# Interactive mode (traces auto-saved for each query)
-cli.run_interactive()
-```
-
-To access recent traces programmatically:
-```python
-latest_traces = cli.trace_logger.get_latest_traces(count=5)
-for trace_path in latest_traces:
-    print(f"Trace: {trace_path}")
-```
-
-### Example Trace
+#### Example 1: Multi-Phase Journey
 
 Query: "Create a sad to happy journey"
 
+**Trace Flow:**
 ```
-UNDERSTAND: Extracted 2 phases ["sad", "happy"]
-PLAN: Created preferences for 2 phases using mode: discovery
-RETRIEVE: Retrieved recommendations - sad: 13 songs, happy: 15 songs  
-EXECUTE: Built playlist with 10 songs, covering 2 unique phases
-VALIDATE: Validation score 0.85/1.0 (threshold: 0.7)
-Result: Playlist accepted, no adjustments needed
+Step 1: UNDERSTAND → Extracted 2 phases: ["happy", "sad"] (from arrow/journey pattern)
+Step 2: PLAN → Created preferences for 2 phases using personality mode
+Step 3: RETRIEVE → Retrieved 3 songs for happy phase, 3 songs for sad phase
+Step 4: EXECUTE → Built 5-song playlist combining both phases
+Step 5: VALIDATE → Validation score 0.70/1.0 (meets 0.7 threshold) ✓
 ```
+
+**Full Trace:**
+```
+## Query: "Create a sad to happy journey"
+
+### Reasoning Trace
+
+#### Step 1: UNDERSTAND
+Input: {"query": "Create a sad to happy journey"}
+Output: {"phases": ["happy", "sad"]}
+Reasoning: Extracted 2 phase(s) from query: ['happy', 'sad']
+
+#### Step 2: PLAN
+Input: {"phases": ["happy", "sad"], "mode": "personality"}
+Output: {"base_prefs": {...}, "phase_count": 2}
+Reasoning: Created preferences for 2 phase(s) using mode: personality
+
+#### Step 3: RETRIEVE
+Input: {"phases": ["happy", "sad"]}
+Output: {"recommendations_per_phase": {"happy": 3, "sad": 3}}
+Reasoning: Retrieved song recommendations for each phase: {'happy': 3, 'sad': 3}
+
+#### Step 4: EXECUTE
+Input: {"target_k": 5, "total_phases": 2}
+Output: {"playlist_size": 5, "phase_labels": ["happy", "happy", "happy", "sad", "sad"]}
+Reasoning: Built playlist with 5 songs, covering 2 unique phases
+
+#### Step 5: VALIDATE
+Input: {"playlist_size": 5, "phase_coverage": 2}
+Output: {"validation_score": 0.7}
+Reasoning: Initial validation: 0.70/1.0 (threshold: 0.7)
+
+### Results
+- Validation Score: 0.70 / 1.0
+- Playlist Size: 5 songs
+- Unique Songs: 5
+```
+
+#### Example 2: Simple Genre Search
+
+Query: "Give me happy pop songs"
+
+**Trace Flow:**
+```
+Step 1: UNDERSTAND → Extracted 1 phase: ["general"] (simple request, no journey)
+Step 2: PLAN → Created preferences using personality mode (pop + happy)
+Step 3: RETRIEVE → Retrieved 5 song recommendations matching preferences
+Step 4: EXECUTE → Built 5-song playlist
+Step 5: VALIDATE → Validation score 0.70/1.0 (meets threshold) ✓
+```
+
+**Note:** Single-phase requests don't trigger ADJUST loop as long as validation ≥ 0.7. Multi-phase or complex requests may iterate (max 3 attempts) if validation score < 0.7.
+
+### Optional Trace Logging
+
+**Traces are disabled by default** to avoid disk bloat from generating logs for every query. Users can enable tracing on-demand:
+
+#### Command Line
+```bash
+# Enable traces at startup
+python -m src.main -i --enable-traces
+
+# Run without traces (default)
+python -m src.main -i
+```
+
+#### Interactive Commands (during session)
+```
+traces              # Show current trace status
+traces on           # Enable trace logging for this session
+traces off          # Disable trace logging for this session
+```
+
+#### Programmatic
+```python
+# Traces disabled by default
+cli = PlaylistCli(resolver, matcher, agent, kb, songs)
+
+# Enable traces
+cli = PlaylistCli(resolver, matcher, agent, kb, songs, enable_traces=True)
+
+# Traces automatically saved only when enabled
+cli.run_single_query("Create a sad to happy journey")
+```
+
+#### Storage Location
+When enabled, traces are saved to [`logs/reasoning_traces/`](../logs/reasoning_traces/) (in .gitignore):
+- `trace_YYYYMMDD_HHMMSS.json` — Structured data (for programmatic analysis)
+- `trace_YYYYMMDD_HHMMSS.md` — Human-readable narrative (for debugging)
+
+**Recent traces:** [`logs/reasoning_traces/`](../logs/reasoning_traces/)
 
 ---
 
-## Agentic Workflow (SF2)
+
 
 

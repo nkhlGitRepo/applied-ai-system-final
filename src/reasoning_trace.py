@@ -86,13 +86,13 @@ class TraceCollector:
 
     def add_step(
         self,
-        step_number: int,
         step_name: str,
         input_data: Dict[str, Any],
         output_data: Dict[str, Any],
         reasoning: str,
     ) -> None:
-        """Add a reasoning step to the trace."""
+        """Add a reasoning step to the trace (step_number auto-increments)."""
+        step_number = len(self.steps) + 1
         step = TraceStep(
             step_number=step_number,
             step_name=step_name,
@@ -110,6 +110,17 @@ class TraceCollector:
         total_unique_songs: int,
     ) -> ReasoningTrace:
         """Finalize the trace and create ReasoningTrace object."""
+        # Validate inputs
+        if not 0.0 <= validation_score <= 1.0:
+            logger.warning(f"Invalid validation_score {validation_score}, clamping to [0.0, 1.0]")
+            validation_score = max(0.0, min(1.0, validation_score))
+        if final_playlist_size < 0:
+            logger.warning(f"Invalid final_playlist_size {final_playlist_size}, setting to 0")
+            final_playlist_size = 0
+        if total_unique_songs < 0:
+            logger.warning(f"Invalid total_unique_songs {total_unique_songs}, setting to 0")
+            total_unique_songs = 0
+
         return ReasoningTrace(
             query=self.query or "unknown",
             timestamp=datetime.now().isoformat(),
@@ -143,32 +154,40 @@ class TraceLogger:
         Returns:
             Path to saved file(s)
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Use microseconds to prevent collision if multiple traces in same second
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:15]
         base_filename = f"trace_{timestamp}"
 
         files_saved = []
 
         if format in ["json", "both"]:
             json_path = os.path.join(self.log_dir, f"{base_filename}.json")
-            with open(json_path, "w") as f:
-                json.dump(trace.to_dict(), f, indent=2)
-            files_saved.append(json_path)
-            logger.info(f"Saved JSON trace: {json_path}")
+            try:
+                with open(json_path, "w") as f:
+                    json.dump(trace.to_dict(), f, indent=2)
+                files_saved.append(json_path)
+                logger.info(f"Saved JSON trace: {json_path}")
+            except IOError as e:
+                logger.error(f"Failed to save JSON trace: {e}")
 
         if format in ["markdown", "both"]:
             md_path = os.path.join(self.log_dir, f"{base_filename}.md")
-            with open(md_path, "w") as f:
-                f.write(trace.to_markdown())
-            files_saved.append(md_path)
-            logger.info(f"Saved markdown trace: {md_path}")
+            try:
+                with open(md_path, "w") as f:
+                    f.write(trace.to_markdown())
+                files_saved.append(md_path)
+                logger.info(f"Saved markdown trace: {md_path}")
+            except IOError as e:
+                logger.error(f"Failed to save markdown trace: {e}")
 
         return files_saved[0] if len(files_saved) == 1 else files_saved
 
-    def get_latest_traces(self, count: int = 5) -> List[str]:
+    def get_latest_traces(self, count: int = 5, format: str = "md") -> List[str]:
         """Get paths to latest trace files.
 
         Args:
             count: Number of recent traces to return
+            format: File format to retrieve ("json", "md", or "both")
 
         Returns:
             List of file paths sorted by recency (newest first)
@@ -178,7 +197,15 @@ class TraceLogger:
 
         files = []
         for f in os.listdir(self.log_dir):
-            if f.startswith("trace_") and f.endswith(".md"):
+            if not f.startswith("trace_"):
+                continue
+            if format == "json" and f.endswith(".json"):
+                path = os.path.join(self.log_dir, f)
+                files.append((path, os.path.getmtime(path)))
+            elif format == "md" and f.endswith(".md"):
+                path = os.path.join(self.log_dir, f)
+                files.append((path, os.path.getmtime(path)))
+            elif format == "both" and (f.endswith(".json") or f.endswith(".md")):
                 path = os.path.join(self.log_dir, f)
                 files.append((path, os.path.getmtime(path)))
 

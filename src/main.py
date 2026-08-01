@@ -210,12 +210,13 @@ def main(
         print("No recommendations found.")
 
 
-def interactive_mode(data_source: str = "data/songs.csv", data_sources: Optional[List[str]] = None) -> None:
+def interactive_mode(data_source: str = "data/songs.csv", data_sources: Optional[List[str]] = None, enable_traces: bool = False) -> None:
     """Interactive CLI for demoing the full system with custom data source(s).
 
     Args:
         data_source: Path to single data file (CSV or JSON, default: data/songs.csv)
         data_sources: List of data files to merge. If provided, takes precedence over data_source.
+        enable_traces: Whether to save reasoning traces (default: False)
     """
     print("\n" + "=" * 80)
     print("🎵 MUSIC PLAYLIST GENERATOR - Interactive Demo".center(80))
@@ -236,9 +237,12 @@ def interactive_mode(data_source: str = "data/songs.csv", data_sources: Optional
     resolver = IntentResolver()
     matcher = MatcherExplainer(kb)
     agent = PlaylistAgent(resolver, matcher, kb, songs)
-    cli = PlaylistCli(resolver, matcher, agent, kb, songs)
+    cli = PlaylistCli(resolver, matcher, agent, kb, songs, enable_traces=enable_traces)
 
-    print(f"✓ Loaded {len(songs)} songs")
+    if enable_traces:
+        print(f"✓ Loaded {len(songs)} songs (tracing enabled → logs/reasoning_traces/)")
+    else:
+        print(f"✓ Loaded {len(songs)} songs")
     print("✓ Initialized all 5 phases (Knowledge Base → Intent Resolver → Matcher → Agent → CLI)")
 
     print("\n" + "=" * 80)
@@ -309,10 +313,12 @@ if __name__ == "__main__":
                         help="Load single data file (CSV or JSON, default: data/songs.csv). Ignored if --data-sources is provided.")
     parser.add_argument("--data-sources", type=str, nargs="+",
                         help="Merge multiple data sources (takes precedence over --data-source). Example: --data-sources data/songs.csv data/songs_example.json")
+    parser.add_argument("--enable-traces", action="store_true",
+                        help="Save reasoning traces to logs/reasoning_traces/ (disabled by default to avoid disk bloat)")
     args = parser.parse_args()
 
     if args.interactive:
-        interactive_mode(data_source=args.data_source, data_sources=args.data_sources)
+        interactive_mode(data_source=args.data_source, data_sources=args.data_sources, enable_traces=args.enable_traces)
     else:
         main(
             profile_name=args.profile,

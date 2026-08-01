@@ -53,6 +53,7 @@ class PlaylistCli:
         agent: PlaylistAgent,
         kb: KnowledgeBase,
         songs: List[dict],
+        enable_traces: bool = False,
     ):
         """Initialize CLI with dependencies from Phases 1-4.
 
@@ -62,6 +63,7 @@ class PlaylistCli:
             agent: Phase 4 PlaylistAgent
             kb: Phase 1 KnowledgeBase
             songs: Full song catalog
+            enable_traces: Whether to save reasoning traces (default: False)
         """
         self.resolver = resolver
         self.matcher = matcher
@@ -69,7 +71,8 @@ class PlaylistCli:
         self.kb = kb
         self.songs = songs
         self.session = ConversationSession()
-        self.trace_logger = TraceLogger()
+        self.enable_traces = enable_traces
+        self.trace_logger = TraceLogger() if enable_traces else None
 
     def run_single_query(self, query: str, k: int = 10) -> str:
         """Process single query and return formatted playlist.
@@ -103,22 +106,35 @@ class PlaylistCli:
             return f"❌ {str(e)}"
 
         # Generate playlist (Phases 2-4) with reasoning trace
-        trace = TraceCollector()
+        trace = TraceCollector() if self.enable_traces else None
         try:
             playlist = self.agent.plan_and_execute(sanitized, k=k, trace=trace)
+        except (ValueError, Exception) as e:
+            # Save partial trace even on failure (if tracing enabled)
+            if trace and trace.steps:
+                try:
+                    partial_trace = trace.finalize(
+                        validation_score=0.0,
+                        final_playlist_size=0,
+                        total_unique_songs=0,
+                    )
+                    self.trace_logger.save_trace(partial_trace, format="both")
+                except Exception as log_err:
+                    pass
+            error_msg = str(e) if isinstance(e, ValueError) else f"Error generating playlist: {str(e)[:100]}"
+            return f"❌ {error_msg}"
 
-            # Save reasoning trace
+        # Save successful trace (if tracing enabled)
+        if trace:
             reasoning_trace = trace.finalize(
                 validation_score=playlist.validation_score,
                 final_playlist_size=len(playlist.songs),
                 total_unique_songs=len(set(s.get("id") for s in playlist.songs)),
             )
-            self.trace_logger.save_trace(reasoning_trace, format="both")
-
-        except ValueError as e:
-            return f"❌ {str(e)}"
-        except Exception as e:
-            return f"❌ Error generating playlist: {str(e)[:100]}"
+            try:
+                self.trace_logger.save_trace(reasoning_trace, format="both")
+            except Exception as log_err:
+                pass
 
         # Format output (pass requested k for comparison)
         return self._format_playlist(playlist, requested_k=k)
@@ -172,6 +188,26 @@ class PlaylistCli:
                 # Handle stats command
                 if user_input.lower() == "stats":
                     self._show_session_stats()
+                    continue
+
+                # Handle traces command
+                if user_input.lower() in ["traces", "traces on", "traces off"]:
+                    if user_input.lower() == "traces":
+                        print(f"Reasoning traces: {'enabled' if self.enable_traces else 'disabled'}")
+                    elif user_input.lower() == "traces on":
+                        if not self.trace_logger:
+                            try:
+                                self.trace_logger = TraceLogger()
+                                self.enable_traces = True
+                                print("✓ Reasoning traces enabled (saving to logs/reasoning_traces/)")
+                            except Exception as e:
+                                print(f"❌ Failed to enable traces: {e}")
+                        else:
+                            self.enable_traces = True
+                            print("✓ Reasoning traces enabled (saving to logs/reasoning_traces/)")
+                    elif user_input.lower() == "traces off":
+                        self.enable_traces = False
+                        print("✓ Reasoning traces disabled")
                     continue
 
                 # Handle exit commands
@@ -352,6 +388,9 @@ class PlaylistCli:
         print("\n⌨️  Commands:")
         print("   'load_data <file>' → Load a single data source (CSV or JSON)")
         print("   'load_data_merge <file1> <file2> ...' → Merge multiple data sources")
+        print("   'traces on' → Enable reasoning trace logging (saves to logs/)")
+        print("   'traces off' → Disable reasoning trace logging")
+        print("   'traces' → Show current trace status")
         print("   'help' or '?' → Show this help text")
         print("   'stats' → Show session statistics")
         print("   'exit', 'quit', 'bye', 'goodbye' → Exit the chat")

@@ -93,7 +93,6 @@ class PlaylistAgent:
         phases = self._understand(user_message)
         if trace:
             trace.add_step(
-                step_number=1,
                 step_name="UNDERSTAND",
                 input_data={"query": user_message},
                 output_data={"phases": phases},
@@ -105,7 +104,6 @@ class PlaylistAgent:
         plan["k"] = k
         if trace:
             trace.add_step(
-                step_number=2,
                 step_name="PLAN",
                 input_data={"phases": phases, "mode": plan.get("mode")},
                 output_data={"base_prefs": plan.get("base_prefs"), "phase_count": len(phases)},
@@ -117,7 +115,6 @@ class PlaylistAgent:
         if trace:
             rec_summary = {phase: len(recs) for phase, recs in recommendations.items()}
             trace.add_step(
-                step_number=3,
                 step_name="RETRIEVE",
                 input_data={"phases": list(plan["phase_prefs"].keys())},
                 output_data={"recommendations_per_phase": rec_summary},
@@ -129,7 +126,6 @@ class PlaylistAgent:
         playlist = self._execute(recommendations, phases, target_k=k, target_energy=target_energy)
         if trace:
             trace.add_step(
-                step_number=4,
                 step_name="EXECUTE",
                 input_data={"target_k": k, "total_phases": len(phases)},
                 output_data={"playlist_size": len(playlist.songs), "phase_labels": playlist.phase_labels},
@@ -142,7 +138,6 @@ class PlaylistAgent:
             playlist.validation_score = 0.0
             if trace:
                 trace.add_step(
-                    step_number=5,
                     step_name="VALIDATE",
                     input_data={"playlist_size": len(playlist.songs)},
                     output_data={"validation_score": 0.0},
@@ -156,7 +151,6 @@ class PlaylistAgent:
 
             if trace and attempt == 0:
                 trace.add_step(
-                    step_number=5,
                     step_name="VALIDATE",
                     input_data={"playlist_size": len(playlist.songs), "phase_coverage": len(set(playlist.phase_labels))},
                     output_data={"validation_score": validation_score},
@@ -172,7 +166,6 @@ class PlaylistAgent:
                 playlist = self._execute(recommendations, phases, target_k=k, target_energy=target_energy)
                 if trace:
                     trace.add_step(
-                        step_number=6,
                         step_name="ADJUST",
                         input_data={"attempt": attempt + 1, "prior_score": validation_score},
                         output_data={"adjusted_playlist_size": len(playlist.songs)},
@@ -324,7 +317,7 @@ class PlaylistAgent:
                 prefs["favorite_mood"] = "happy"
                 prefs["target_energy"] = 0.8
 
-            elif phase_lower in ["chill", "calm", "relaxing", "relaxed", "mellow", "focused", "meditative"]:
+            elif phase_lower in ["chill", "calm", "relaxing", "relaxed", "mellow", "focused", "meditative", "slow"]:
                 prefs["favorite_mood"] = phase_lower if phase_lower in ["chill", "calm", "focused", "meditative"] else "chill"
                 prefs["target_energy"] = 0.3
                 prefs["likes_acoustic"] = True
