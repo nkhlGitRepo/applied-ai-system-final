@@ -17,6 +17,7 @@ from typing import Dict, List, Optional, Tuple
 from src.phase2_intent_resolver import IntentResolver
 from src.phase3_matcher_explainer import MatcherExplainer
 from src.phase1_knowledge_base import KnowledgeBase
+from src.reasoning_trace import TraceCollector
 
 
 @dataclass
@@ -67,12 +68,13 @@ class PlaylistAgent:
         if k > 100:
             raise ValueError(f"Playlist size cannot exceed 100, got {k}")
 
-    def plan_and_execute(self, user_message: str, k: int = 10) -> Playlist:
+    def plan_and_execute(self, user_message: str, k: int = 10, trace: Optional[TraceCollector] = None) -> Playlist:
         """Execute agentic loop: UNDERSTAND → PLAN → RETRIEVE → EXECUTE → VALIDATE → ADJUST.
 
         Args:
             user_message: User's playlist request
             k: Total playlist size (default 10). Clamped to 1-100 and available songs.
+            trace: Optional TraceCollector to capture reasoning steps
 
         Returns:
             Playlist object with songs, explanations, phase labels, validation score
@@ -80,33 +82,86 @@ class PlaylistAgent:
         Raises:
             ValueError: If k is not an integer or is invalid (not in 1-100 range)
         """
+        if trace:
+            trace.set_query(user_message)
+
         # Validate and normalize playlist size
         self._validate_playlist_size(k)
         k = min(k, len(self.songs))
 
         # 1. UNDERSTAND: Extract phases from user message
         phases = self._understand(user_message)
+        if trace:
+            trace.add_step(
+                step_number=1,
+                step_name="UNDERSTAND",
+                input_data={"query": user_message},
+                output_data={"phases": phases},
+                reasoning=f"Extracted {len(phases)} phase(s) from query: {phases}",
+            )
 
         # 2. PLAN: Create preferences for each phase
         plan = self._plan(phases, user_message)
         plan["k"] = k
+        if trace:
+            trace.add_step(
+                step_number=2,
+                step_name="PLAN",
+                input_data={"phases": phases, "mode": plan.get("mode")},
+                output_data={"base_prefs": plan.get("base_prefs"), "phase_count": len(phases)},
+                reasoning=f"Created preferences for {len(phases)} phase(s) using mode: {plan.get('mode')}",
+            )
 
         # 3. RETRIEVE: Get recommendations for each phase
         recommendations = self._retrieve(plan)
+        if trace:
+            rec_summary = {phase: len(recs) for phase, recs in recommendations.items()}
+            trace.add_step(
+                step_number=3,
+                step_name="RETRIEVE",
+                input_data={"phases": list(plan["phase_prefs"].keys())},
+                output_data={"recommendations_per_phase": rec_summary},
+                reasoning=f"Retrieved song recommendations for each phase: {rec_summary}",
+            )
 
         # 4. EXECUTE: Build playlist from recommendations (trim to target k)
         target_energy = plan.get("base_prefs", {}).get("target_energy")
         playlist = self._execute(recommendations, phases, target_k=k, target_energy=target_energy)
+        if trace:
+            trace.add_step(
+                step_number=4,
+                step_name="EXECUTE",
+                input_data={"target_k": k, "total_phases": len(phases)},
+                output_data={"playlist_size": len(playlist.songs), "phase_labels": playlist.phase_labels},
+                reasoning=f"Built playlist with {len(playlist.songs)} songs, covering {len(set(playlist.phase_labels))} unique phases",
+            )
 
         # 5. VALIDATE + ADJUST loop (max 3 attempts)
         # Early exit if no songs: validation will always be 0.0, adjustments won't help
         if not self.songs:
             playlist.validation_score = 0.0
+            if trace:
+                trace.add_step(
+                    step_number=5,
+                    step_name="VALIDATE",
+                    input_data={"playlist_size": len(playlist.songs)},
+                    output_data={"validation_score": 0.0},
+                    reasoning="Empty song catalog - validation score set to 0.0",
+                )
             return playlist
 
         for attempt in range(self.max_adjustments):
             validation_score = self._validate(playlist, plan)
             playlist.validation_score = validation_score
+
+            if trace and attempt == 0:
+                trace.add_step(
+                    step_number=5,
+                    step_name="VALIDATE",
+                    input_data={"playlist_size": len(playlist.songs), "phase_coverage": len(set(playlist.phase_labels))},
+                    output_data={"validation_score": validation_score},
+                    reasoning=f"Initial validation: {validation_score:.2f}/1.0 (threshold: 0.7)",
+                )
 
             if validation_score >= 0.7:
                 break
@@ -115,6 +170,14 @@ class PlaylistAgent:
                 plan = self._adjust(plan, playlist, attempt)
                 recommendations = self._retrieve(plan)
                 playlist = self._execute(recommendations, phases, target_k=k, target_energy=target_energy)
+                if trace:
+                    trace.add_step(
+                        step_number=6,
+                        step_name="ADJUST",
+                        input_data={"attempt": attempt + 1, "prior_score": validation_score},
+                        output_data={"adjusted_playlist_size": len(playlist.songs)},
+                        reasoning=f"Adjustment {attempt + 1}: Score {validation_score:.2f} < 0.7 threshold, adjusted plan and re-retrieved",
+                    )
 
         return playlist
 

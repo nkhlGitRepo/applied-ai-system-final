@@ -20,6 +20,7 @@ from src.phase4_playlist_agent import PlaylistAgent, Playlist
 from src.phase1_knowledge_base import KnowledgeBase
 from src.guardrails import sanitize_user_input, sanitize_explanation
 from src.data_loader import load_songs, load_and_merge_songs
+from src.reasoning_trace import TraceCollector, TraceLogger
 
 # Constants
 MAX_MESSAGES_PER_HOUR = 100
@@ -68,6 +69,7 @@ class PlaylistCli:
         self.kb = kb
         self.songs = songs
         self.session = ConversationSession()
+        self.trace_logger = TraceLogger()
 
     def run_single_query(self, query: str, k: int = 10) -> str:
         """Process single query and return formatted playlist.
@@ -100,9 +102,19 @@ class PlaylistCli:
         except ValueError as e:
             return f"❌ {str(e)}"
 
-        # Generate playlist (Phases 2-4)
+        # Generate playlist (Phases 2-4) with reasoning trace
+        trace = TraceCollector()
         try:
-            playlist = self.agent.plan_and_execute(sanitized, k=k)
+            playlist = self.agent.plan_and_execute(sanitized, k=k, trace=trace)
+
+            # Save reasoning trace
+            reasoning_trace = trace.finalize(
+                validation_score=playlist.validation_score,
+                final_playlist_size=len(playlist.songs),
+                total_unique_songs=len(set(s.get("id") for s in playlist.songs)),
+            )
+            self.trace_logger.save_trace(reasoning_trace, format="both")
+
         except ValueError as e:
             return f"❌ {str(e)}"
         except Exception as e:
